@@ -199,86 +199,164 @@ PYEOF
   fi
 fi
 
-# ── Google (Gemini CLI) ───────────────────────────────────────────────
-# Auth: Gemini CLI (`npm i -g @google/gemini-cli && gemini`)
-# Metrics: codexbar provides detailed usage bars; without it = basic status only
+# ── Google Gemini CLI ─────────────────────────────────────────────────
+# Auth: Uses OAuth token from OpenClaw's auth-profiles.json
+# API:  cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota
 
 if [ "$SHOW_GOOGLE" -eq 1 ]; then
-  GOOGLE_FOUND=0
-  HAS_METRICS=0
+  AUTH_PROFILES="$HOME/.openclaw/agents/main/agent/auth-profiles.json"
 
-  # Check for detailed metrics (codexbar reads Google account usage)
-  if command -v codexbar >/dev/null 2>&1; then
-    HAS_METRICS=1
-  fi
+  if [ -f "$AUTH_PROFILES" ]; then
+    GEMINI_TOKEN=$(python3 << PYEOF
+import json, pathlib, time, os
 
-  # Get detailed usage metrics if available
-  if [ "$HAS_METRICS" -eq 1 ]; then
-    GOOGLE_JSON=$(codexbar usage --json 2>/dev/null || echo "[]")
-    if [ "$GOOGLE_JSON" != "[]" ] && [ -n "$GOOGLE_JSON" ]; then
-      TEXT_OUTPUT+="━━━ Google (Claude + Gemini) ━━━━━━━━━━━━━━━━━\n\n"
-      GOOGLE_FOUND=1
+profiles_path = pathlib.Path(os.path.expanduser("$AUTH_PROFILES"))
+if not profiles_path.exists():
+    exit(0)
 
-      GOOGLE_PARSED=$(python3 << PYEOF
-import json
-data = json.loads('''$GOOGLE_JSON''')
-for entry in data:
-    u = entry.get('usage', {})
-    identity = u.get('identity', {})
-    email = identity.get('accountEmail', u.get('accountEmail', '?'))
-    plan = u.get('loginMethod', '?')
-    primary = u.get('primary', {})
-    secondary = u.get('secondary', {})
-    tertiary = u.get('tertiary', {})
-    p_pct = primary.get('usedPercent', 0)
-    p_reset = primary.get('resetsAt', '')
-    s_pct = secondary.get('usedPercent', 0)
-    s_reset = secondary.get('resetsAt', '')
-    t_pct = tertiary.get('usedPercent', 0)
-    t_reset = tertiary.get('resetsAt', '')
-    print(f"{email}|{plan}|{p_pct}|{p_reset}|{s_pct}|{s_reset}|{t_pct}|{t_reset}")
+data = json.loads(profiles_path.read_text())
+profiles = data.get("profiles", {})
+
+# Find google-gemini-cli profile
+for key, prof in profiles.items():
+    if prof.get("provider") == "google-gemini-cli":
+        access_token = prof.get("access", "")
+        refresh_token = prof.get("refresh", "")
+        expires = prof.get("expires", 0)
+
+        # Check if token is expired (expires is epoch ms)
+        if expires and time.time() * 1000 > expires - 60000:
+            # Token expired — try refresh using credentials from Gemini CLI config
+            if refresh_token:
+                import urllib.request, urllib.parse
+                # Read OAuth client credentials from Gemini CLI's installed package
+                client_id = ""
+                client_secret = ""
+                for search_path in [
+                    os.path.expanduser("~/.gemini/oauth_creds.json"),
+                    "/opt/homebrew/lib/node_modules/@google/gemini-cli/build/src/core/auth/oauth_config.json",
+                ]:
+                    if os.path.exists(search_path):
+                        try:
+                            creds = json.loads(open(search_path).read())
+                            client_id = creds.get("client_id", creds.get("clientId", ""))
+                            client_secret = creds.get("client_secret", creds.get("clientSecret", ""))
+                            if client_id:
+                                break
+                        except:
+                            continue
+
+                if not client_id:
+                    # Fallback: read from npm global package
+                    import glob
+                    for p in glob.glob("/opt/homebrew/lib/node_modules/@google/gemini-cli/**/oauth*", recursive=True):
+                        try:
+                            c = json.loads(open(p).read())
+                            if c.get("client_id") or c.get("clientId"):
+                                client_id = c.get("client_id", c.get("clientId", ""))
+                                client_secret = c.get("client_secret", c.get("clientSecret", ""))
+                                break
+                        except:
+                            continue
+
+                if client_id and client_secret:
+                    req_data = urllib.parse.urlencode({
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "refresh_token": refresh_token,
+                        "grant_type": "refresh_token"
+                    }).encode()
+                    req = urllib.request.Request("https://oauth2.googleapis.com/token", data=req_data, method="POST")
+                    try:
+                        resp = urllib.request.urlopen(req, timeout=10)
+                        tokens = json.loads(resp.read())
+                        new_access = tokens.get("access_token", "")
+                        if new_access:
+                            prof["access"] = new_access
+                            prof["expires"] = int(time.time() * 1000) + tokens.get("expires_in", 3600) * 1000
+                            profiles_path.write_text(json.dumps(data, indent=2))
+                            access_token = new_access
+                    except:
+                        pass
+
+        if access_token:
+            print(access_token)
+        break
 PYEOF
-      )
+    )
 
-      while IFS='|' read -r G_EMAIL G_PLAN G_P_PCT G_P_RESET G_S_PCT G_S_RESET G_T_PCT G_T_RESET; do
-        G_P_LEFT="—"; G_S_LEFT="—"; G_T_LEFT="—"
-        if [ -n "$G_P_RESET" ]; then
-          G_P_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${G_P_RESET%Z}" +%s 2>/dev/null || echo 0)
-          [ "$G_P_TS" -gt 0 ] && G_P_LEFT=$(secs_to_human $((G_P_TS - NOW)))
-        fi
-        if [ -n "$G_S_RESET" ]; then
-          G_S_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${G_S_RESET%Z}" +%s 2>/dev/null || echo 0)
-          [ "$G_S_TS" -gt 0 ] && G_S_LEFT=$(secs_to_human $((G_S_TS - NOW)))
-        fi
-        if [ -n "$G_T_RESET" ]; then
-          G_T_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${G_T_RESET%Z}" +%s 2>/dev/null || echo 0)
-          [ "$G_T_TS" -gt 0 ] && G_T_LEFT=$(secs_to_human $((G_T_TS - NOW)))
-        fi
+    GEMINI_EMAIL=$(python3 -c "
+import json, os
+d = json.load(open(os.path.expanduser('$AUTH_PROFILES')))
+for k, v in d.get('profiles', {}).items():
+    if v.get('provider') == 'google-gemini-cli':
+        print(v.get('email', '?'))
+        break
+" 2>/dev/null || echo "?")
 
-        USED_P=${G_P_PCT%.*}; USED_S=${G_S_PCT%.*}; USED_T=${G_T_PCT%.*}
+    if [ -n "$GEMINI_TOKEN" ]; then
+      # Query Google's quota API
+      QUOTA_RESP=$(curl -s --max-time 10 \
+        -X POST "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota" \
+        -H "Authorization: Bearer $GEMINI_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{}' 2>/dev/null || echo "")
 
-        TEXT_OUTPUT+="  🌐 $G_EMAIL — Google ($G_PLAN)\n"
-        TEXT_OUTPUT+="     🤖 Claude:      $(dot $USED_P) $(bar $USED_P) ${USED_P}%  ⏳${G_P_LEFT}\n"
-        TEXT_OUTPUT+="     ♊ Gemini Pro:   $(dot $USED_S) $(bar $USED_S) ${USED_S}%  ⏳${G_S_LEFT}\n"
-        TEXT_OUTPUT+="     ⚡ Gemini Flash: $(dot $USED_T) $(bar $USED_T) ${USED_T}%  ⏳${G_T_LEFT}\n"
+      if [ -n "$QUOTA_RESP" ] && echo "$QUOTA_RESP" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+        GEMINI_PARSED=$(python3 << PYEOF
+import json
+
+data = json.loads('''$QUOTA_RESP''')
+buckets = data.get("buckets", [])
+
+# Aggregate by model family: pro vs flash
+pro_min = 1.0
+flash_min = 1.0
+has_pro = False
+has_flash = False
+
+for bucket in buckets:
+    model = (bucket.get("modelId", "") or "").lower()
+    frac = bucket.get("remainingFraction", 1.0)
+    if "pro" in model:
+        has_pro = True
+        if frac < pro_min:
+            pro_min = frac
+    if "flash" in model:
+        has_flash = True
+        if frac < flash_min:
+            flash_min = frac
+
+pro_used = int((1 - pro_min) * 100) if has_pro else 0
+flash_used = int((1 - flash_min) * 100) if has_flash else 0
+
+print(f"{pro_used}|{flash_used}|{has_pro}|{has_flash}")
+PYEOF
+        )
+
+        IFS='|' read -r GC_PRO_PCT GC_FLASH_PCT GC_HAS_PRO GC_HAS_FLASH <<< "$GEMINI_PARSED"
+
+        TEXT_OUTPUT+="━━━ Google Gemini CLI ━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        TEXT_OUTPUT+="  🌐 $GEMINI_EMAIL\n"
+        if [ "$GC_HAS_PRO" = "True" ]; then
+          TEXT_OUTPUT+="     ♊ Gemini Pro:   $(dot $GC_PRO_PCT) $(bar $GC_PRO_PCT) ${GC_PRO_PCT}%\n"
+        fi
+        if [ "$GC_HAS_FLASH" = "True" ]; then
+          TEXT_OUTPUT+="     ⚡ Gemini Flash: $(dot $GC_FLASH_PCT) $(bar $GC_FLASH_PCT) ${GC_FLASH_PCT}%\n"
+        fi
+        if [ "$GC_HAS_PRO" != "True" ] && [ "$GC_HAS_FLASH" != "True" ]; then
+          TEXT_OUTPUT+="     🟢 No quota limits detected (unlimited or not metered)\n"
+        fi
         TEXT_OUTPUT+="\n"
 
-        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"gemini-cli\",\"email\":\"$G_EMAIL\",\"plan\":\"$G_PLAN\",\"claude\":{\"used_pct\":$USED_P,\"resets_in\":\"$G_P_LEFT\"},\"gemini_pro\":{\"used_pct\":$USED_S,\"resets_in\":\"$G_S_LEFT\"},\"gemini_flash\":{\"used_pct\":$USED_T,\"resets_in\":\"$G_T_LEFT\"}}"
-      done <<< "$GOOGLE_PARSED"
-    fi
-
-  elif [ "$GOOGLE_AUTH" = "gemini-cli" ]; then
-    # No detailed metrics — check if Gemini CLI is authenticated
-    # Quick auth check
-    GEMINI_TEST=$(timeout 5 gemini -p "Say OK" --model gemini-2.0-flash 2>/dev/null || echo "")
-    if [ -n "$GEMINI_TEST" ]; then
-      TEXT_OUTPUT+="━━━ Google (Gemini CLI) ━━━━━━━━━━━━━━━━━━━━━\n\n"
-      TEXT_OUTPUT+="  🌐 Gemini CLI authenticated ✅\n"
-      TEXT_OUTPUT+="     ♊ Models: Claude Opus, Gemini Pro, Gemini Flash\n"
-      TEXT_OUTPUT+="     ℹ️  Install codexbar for detailed usage metrics:\n"
-      TEXT_OUTPUT+="        brew install --cask steipete/tap/codexbar\n\n"
-      GOOGLE_FOUND=1
-      JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"gemini-cli\",\"authenticated\":true,\"note\":\"Install codexbar for detailed usage metrics\"}"
+        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google-gemini-cli\",\"email\":\"$GEMINI_EMAIL\",\"gemini_pro\":{\"used_pct\":$GC_PRO_PCT},\"gemini_flash\":{\"used_pct\":$GC_FLASH_PCT}}"
+      else
+        # Quota API failed — show basic status
+        TEXT_OUTPUT+="━━━ Google Gemini CLI ━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        TEXT_OUTPUT+="  🌐 $GEMINI_EMAIL — Authenticated ✅\n"
+        TEXT_OUTPUT+="     ⚠️  Could not query usage quota\n\n"
+        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google-gemini-cli\",\"email\":\"$GEMINI_EMAIL\",\"authenticated\":true,\"error\":\"quota_query_failed\"}"
+      fi
     fi
   fi
 fi
