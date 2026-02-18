@@ -1,29 +1,26 @@
-# 🧠 FlowState
+# 🦞 FlowState — An OpenClaw Skill
 
 ```
-  ╔═══════════════════════════════════════════════╗
-  ║                                               ║
-  ║   ███████╗██╗      ██████╗ ██╗    ██╗         ║
-  ║   ██╔════╝██║     ██╔═══██╗██║    ██║         ║
-  ║   █████╗  ██║     ██║   ██║██║ █╗ ██║         ║
-  ║   ██╔══╝  ██║     ██║   ██║██║███╗██║         ║
-  ║   ██║     ███████╗╚██████╔╝╚███╔███╔╝         ║
-  ║   ╚═╝     ╚══════╝ ╚═════╝  ╚══╝╚══╝         ║
-  ║     ███████╗████████╗ █████╗ ████████╗███████╗ ║
-  ║     ██╔════╝╚══██╔══╝██╔══██╗╚══██╔══╝██╔════╝║
-  ║     ███████╗   ██║   ███████║   ██║   █████╗  ║
-  ║     ╚════██║   ██║   ██╔══██║   ██║   ██╔══╝  ║
-  ║     ███████║   ██║   ██║  ██║   ██║   ███████╗║
-  ║     ╚══════╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚══════╝║
-  ║                                               ║
-  ║   Intelligent LLM Load Balancer        v1.0   ║
-  ║   Never let your credits go to waste.         ║
-  ╚═══════════════════════════════════════════════╝
+  ███████╗██╗      ██████╗ ██╗    ██╗
+  ██╔════╝██║     ██╔═══██╗██║    ██║              ,----,
+  █████╗  ██║     ██║   ██║██║ █╗ ██║            .'   .' \
+  ██╔══╝  ██║     ██║   ██║██║███╗██║          ,----,'    |
+  ██║     ███████╗╚██████╔╝╚███╔███╔╝   🦞    |    :  .  ;
+  ╚═╝     ╚══════╝ ╚═════╝  ╚══╝╚══╝          ;    |.'  /
+    ███████╗████████╗ █████╗ ████████╗███████╗  `----'/  ;
+    ██╔════╝╚══██╔══╝██╔══██╗╚══██╔══╝██╔════╝   /  ;  /
+    ███████╗   ██║   ███████║   ██║   █████╗    ;  /  /----,
+    ╚════██║   ██║   ██╔══██║   ██║   ██╔══╝   /  /  '    |
+    ███████║   ██║   ██║  ██║   ██║   ███████╗.`---.:  .  ;
+    ╚══════╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚══════╝  ;    |.'
+                                                  `----'
+  🦞 An OpenClaw Skill — Intelligent LLM Load Balancer v1.0
+  Never let your credits go to waste.
 ```
 
-> **Maximize the value of your existing LLM subscriptions by never letting credits go to waste.**
+> **🦞 An [OpenClaw](https://github.com/openclaw/openclaw) skill that maximizes the value of your existing LLM subscriptions by never letting credits go to waste.**
 
-FlowState is an intelligent load balancer for LLM subscriptions. It uses **Earliest Deadline First** scheduling and **perishable inventory** optimization to dynamically route your requests to the account that needs to be used before its credits reset and go to waste.
+FlowState is an intelligent load balancer for [OpenClaw](https://github.com/openclaw/openclaw). It uses **Earliest Deadline First** scheduling and **perishable inventory** optimization to dynamically reorder your OpenClaw model routing, ensuring the account with the most urgent credits is always used first.
 
 ---
 
@@ -56,6 +53,7 @@ Flat-rate LLM subscriptions like Claude Max and Google Antigravity have **usage 
 
 ## ✨ Features
 
+- 🦞 **Built for OpenClaw** — Directly manages your OpenClaw model routing and profile ordering
 - 🧠 **Smart scoring** — EDF urgency algorithm scores accounts by remaining credits, reset proximity, and provider tier
 - 🔄 **Automatic switching** — Reorders your OpenClaw model routing when better options are available
 - 📊 **Unified dashboard** — See all providers at a glance with live usage bars
@@ -369,6 +367,7 @@ MIT — see [LICENSE](LICENSE)
 ---
 
 <p align="center">
-  <i>Built with 🧠 by the FlowState contributors</i><br>
+  🦞<br>
+  <i>A skill for <a href="https://github.com/openclaw/openclaw">OpenClaw</a> — the open-source AI coding agent</i><br>
   <i>Maximize your subscriptions. Never waste a credit.</i>
 </p>
