@@ -1,4 +1,4 @@
-# 🦞 FlowClaw — Intelligent LLM Load Balancer for OpenClaw
+# 🦞 FlowClaw — LLM Subscription Usage Monitoring and AI Load Balancer for OpenClaw
  Never let your credits go to waste.
 
 ```
