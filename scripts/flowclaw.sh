@@ -1,5 +1,5 @@
 #!/bin/bash
-# FlowState — Intelligent LLM Load Balancer
+# FlowClaw — Intelligent LLM Load Balancer
 # Maximize the value of your existing LLM subscriptions
 # by never letting credits go to waste.
 
@@ -7,8 +7,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TOKEN_DIR="${TOKEN_DIR:-$HOME/.openclaw/usage-tokens}"
-STATE_FILE="$SCRIPT_DIR/../config/flowstate-state.json"
-HISTORY_FILE="$SCRIPT_DIR/../config/flowstate-history.jsonl"
+STATE_FILE="$SCRIPT_DIR/../config/flowclaw-state.json"
+HISTORY_FILE="$SCRIPT_DIR/../config/flowclaw-history.jsonl"
 CACHE_FILE="/tmp/provider-usage-cache"
 
 # ── Banner ───────────────────────────────────────────────────────────
@@ -16,20 +16,21 @@ CACHE_FILE="/tmp/provider-usage-cache"
 show_banner() {
   cat <<'BANNER'
 
-  ███████╗██╗      ██████╗ ██╗    ██╗
-  ██╔════╝██║     ██╔═══██╗██║    ██║              ,----,
-  █████╗  ██║     ██║   ██║██║ █╗ ██║            .'   .' \
-  ██╔══╝  ██║     ██║   ██║██║███╗██║          ,----,'    |
-  ██║     ███████╗╚██████╔╝╚███╔███╔╝   🦞    |    :  .  ;
-  ╚═╝     ╚══════╝ ╚═════╝  ╚══╝╚══╝          ;    |.'  /
-    ███████╗████████╗ █████╗ ████████╗███████╗  `----'/  ;
-    ██╔════╝╚══██╔══╝██╔══██╗╚══██╔══╝██╔════╝   /  ;  /
-    ███████╗   ██║   ███████║   ██║   █████╗    ;  /  /----,
-    ╚════██║   ██║   ██╔══██║   ██║   ██╔══╝   /  /  '    |
-    ███████║   ██║   ██║  ██║   ██║   ███████╗.`---.:  .  ;
-    ╚══════╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚══════╝  ;    |.'
-                                                  `----'
-  🦞 An OpenClaw Skill — Intelligent LLM Load Balancer v1.0
+       ██████╗██╗      █████╗ ██╗    ██╗
+      ██╔════╝██║     ██╔══██╗██║    ██║        /)/)
+      ██║     ██║     ███████║██║ █╗ ██║       ( ..\        🦞
+      ██║     ██║     ██╔══██║██║███╗██║        /'-._\
+      ╚██████╗███████╗██║  ██║╚███╔███╔╝   ===/ \_  \===
+       ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝  /  /  / \  \ \
+  ███████╗██╗      ██████╗ ██╗    ██╗     /  /  /   \  \ \
+  ██╔════╝██║     ██╔═══██╗██║    ██║    {__/__/     \__\__}
+  █████╗  ██║     ██║   ██║██║ █╗ ██║
+  ██╔══╝  ██║     ██║   ██║██║███╗██║
+  ██║     ███████╗╚██████╔╝╚███╔███╔╝
+  ╚═╝     ╚══════╝ ╚═════╝  ╚══╝╚══╝
+
+  🦞 FlowClaw — An OpenClaw Skill
+  Intelligent LLM Load Balancer v1.0
   Never let your credits go to waste.
 
 BANNER
@@ -122,7 +123,7 @@ for r in d.get('ranked', []):
     print(f\"  #{r['rank']}  {status} {r['account']:15s}  score={r['score']:.4f}  {r['reason']}\")
 ")
 
-  echo "🧠 FlowState Optimization"
+  echo "🧠 FlowClaw Optimization"
   echo ""
   echo "$ranked_summary"
   echo ""
@@ -213,12 +214,12 @@ json.dump(state, open('$STATE_FILE', 'w'), indent=2)
 "
 
   echo ""
-  echo "  ✅ FlowState optimized!"
+  echo "  ✅ FlowClaw optimized!"
   rm -f "$CACHE_FILE"
 }
 
 cmd_auto() {
-  cmd_optimize "$@" 2>&1 | tee -a /tmp/flowstate-auto.log
+  cmd_optimize "$@" 2>&1 | tee -a /tmp/flowclaw-auto.log
 }
 
 cmd_test() {
@@ -229,11 +230,11 @@ cmd_history() {
   local num_entries="${1:-20}"
 
   if [ ! -f "$HISTORY_FILE" ]; then
-    echo "📊 No routing history yet. Run 'flowstate optimize' first."
+    echo "📊 No routing history yet. Run 'flowclaw optimize' first."
     return
   fi
 
-  echo "📊 FlowState Routing History"
+  echo "📊 FlowClaw Routing History"
   echo ""
 
   python3 - "$HISTORY_FILE" "$num_entries" << 'PYEOF'
@@ -338,7 +339,7 @@ case "${1:-help}" in
     show_banner
     echo ""
     cat <<'EOF'
-Usage: flowstate <command> [options]
+Usage: flowclaw <command> [options]
 
 Commands:
   status [--fresh] [--json]        Show usage dashboard across all providers
@@ -354,15 +355,15 @@ Options:
   --dry-run        Show proposed changes without applying
 
 Examples:
-  flowstate status --fresh          # Live usage dashboard
-  flowstate score                   # See which account FlowState recommends
-  flowstate optimize --dry-run      # Preview routing changes
-  flowstate optimize                # Apply optimal routing
-  flowstate history 50              # Last 50 routing decisions
+  flowclaw status --fresh          # Live usage dashboard
+  flowclaw score                   # See which account FlowClaw recommends
+  flowclaw optimize --dry-run      # Preview routing changes
+  flowclaw optimize                # Apply optimal routing
+  flowclaw history 50              # Last 50 routing decisions
 EOF
     ;;
   *)
-    echo "Unknown command: $1. Run 'flowstate help' for usage."
+    echo "Unknown command: $1. Run 'flowclaw help' for usage."
     exit 1
     ;;
 esac

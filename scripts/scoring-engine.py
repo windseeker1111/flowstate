@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FlowState Scoring Engine — EDF-based urgency scoring for LLM account routing.
+"""FlowClaw Scoring Engine — EDF-based urgency scoring for LLM account routing.
 
 Reads usage JSON from stdin (produced by usage collector), computes urgency
 scores for each account, and outputs a ranked list with recommended routing.
@@ -291,7 +291,7 @@ def main():
         }
         print(json.dumps(result, indent=2))
     else:
-        print("🧠 FlowState Scoring\n")
+        print("🧠 FlowClaw Scoring\n")
         for i, s in enumerate(scored):
             status = "✅" if s.available else "🚫"
             print(f"  #{i+1}  {status} {s.account:15s}  score={s.score:.4f}  {s.reason}")

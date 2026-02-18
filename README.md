@@ -1,4 +1,4 @@
-# 🦞 FlowState — An OpenClaw Skill
+# 🦞 FlowClaw — An OpenClaw Skill
 
 ```
   ███████╗██╗      ██████╗ ██╗    ██╗
@@ -20,7 +20,7 @@
 
 > **🦞 An [OpenClaw](https://github.com/openclaw/openclaw) skill that maximizes the value of your existing LLM subscriptions by never letting credits go to waste.**
 
-FlowState is an intelligent load balancer for [OpenClaw](https://github.com/openclaw/openclaw). It uses **Earliest Deadline First** scheduling and **perishable inventory** optimization to dynamically reorder your OpenClaw model routing, ensuring the account with the most urgent credits is always used first.
+FlowClaw is an intelligent load balancer for [OpenClaw](https://github.com/openclaw/openclaw). It uses **Earliest Deadline First** scheduling and **perishable inventory** optimization to dynamically reorder your OpenClaw model routing, ensuring the account with the most urgent credits is always used first.
 
 ---
 
@@ -28,7 +28,7 @@ FlowState is an intelligent load balancer for [OpenClaw](https://github.com/open
 
 Flat-rate LLM subscriptions like Claude Max and Google Antigravity have **usage windows that reset on a schedule**. If you don't use your credits before the window closes, they're gone. If you have multiple accounts across multiple providers, you're almost certainly leaving money on the table.
 
-**Without FlowState:**
+**Without FlowClaw:**
 ```
   ┌─────────────────────────────────────────────────────────┐
   │  Account A     ████████████████████░░░░░  80% used      │  ← Resets in 30min!
@@ -39,7 +39,7 @@ Flat-rate LLM subscriptions like Claude Max and Google Antigravity have **usage 
   └─────────────────────────────────────────────────────────┘
 ```
 
-**With FlowState:**
+**With FlowClaw:**
 ```
   ┌─────────────────────────────────────────────────────────┐
   │  ⚡ SWITCH → Account A  (score: 0.9412, resets in 30m)  │
@@ -59,14 +59,14 @@ Flat-rate LLM subscriptions like Claude Max and Google Antigravity have **usage 
 - 📊 **Unified dashboard** — See all providers at a glance with live usage bars
 - 📈 **Routing history** — Graph of every switchover with provider distribution charts
 - 🏠 **Local fallback** — Auto-detects Ollama models as always-available fallback
-- ⏱️ **Cron-ready** — `flowstate auto` runs silently for hands-free optimization
+- ⏱️ **Cron-ready** — `flowclaw auto` runs silently for hands-free optimization
 
 ---
 
 ## 📊 Dashboard
 
 ```bash
-$ flowstate status --fresh
+$ flowclaw status --fresh
 ```
 ```
 🦞 LLM Provider Usage Dashboard
@@ -104,10 +104,10 @@ $ flowstate status --fresh
 ## 🧮 Scoring
 
 ```bash
-$ flowstate score
+$ flowclaw score
 ```
 ```
-🧠 FlowState Scoring
+🧠 FlowClaw Scoring
 
   #1  ✅ ag-claude        score=0.4143  0% used       ← recommended
   #2  ✅ ag-gemini_pro    score=0.4109  0% used
@@ -122,13 +122,13 @@ $ flowstate score
 
 ## ⚡ Switchover in Action
 
-When FlowState detects a better routing option, it swaps your primary model and reorganizes fallbacks:
+When FlowClaw detects a better routing option, it swaps your primary model and reorganizes fallbacks:
 
 ```bash
-$ flowstate optimize
+$ flowclaw optimize
 ```
 ```
-🧠 FlowState Optimization
+🧠 FlowClaw Optimization
 
   #1  ✅ ag-gemini_pro    score=0.4110  0% used
   #2  ✅ ag-gemini_flash  score=0.4110  0% used
@@ -144,16 +144,16 @@ $ flowstate optimize
   ✅ Primary model set to google-antigravity/gemini-3-pro-high
   ✅ Fallbacks: anthropic/claude-opus-4-6, google-antigravity/claude-opus-4-6-thinking
 
-  ✅ FlowState optimized!
+  ✅ FlowClaw optimized!
 ```
 
 Later, when the Anthropic session window resets and credits are fresh again:
 
 ```bash
-$ flowstate optimize
+$ flowclaw optimize
 ```
 ```
-🧠 FlowState Optimization
+🧠 FlowClaw Optimization
 
   #1  ✅ work             score=0.5200  5h:0% 7d:41%    ← session just reset!
   #2  ✅ personal         score=0.4800  5h:0% 7d:12%
@@ -166,7 +166,7 @@ $ flowstate optimize
   ✅ Primary model set to anthropic/claude-opus-4-6
   ✅ Fallbacks: google-antigravity/claude-opus-4-6-thinking, google-antigravity/gemini-3-pro-high
 
-  ✅ FlowState optimized!
+  ✅ FlowClaw optimized!
 ```
 
 ---
@@ -174,10 +174,10 @@ $ flowstate optimize
 ## 📈 Routing History
 
 ```bash
-$ flowstate history
+$ flowclaw history
 ```
 ```
-📊 FlowState Routing History
+📊 FlowClaw Routing History
 
   ┌─── Routing Timeline ───────────────────────────────────────
   │ Feb 18 09:00AM  🔵 anthropic/claude-opus-4-6
@@ -261,14 +261,14 @@ score = urgency × 0.4  +  availability × 0.3  +  proximity × 0.2  +  tier_bon
 
 ```bash
 # Clone
-git clone https://github.com/windseeker1111/flowstate.git ~/clawd/skills/flowstate
+git clone https://github.com/windseeker1111/flowclaw.git ~/clawd/skills/flowclaw
 
 # Make executable
-chmod +x ~/clawd/skills/flowstate/scripts/*.sh
-chmod +x ~/clawd/skills/flowstate/scripts/*.py
+chmod +x ~/clawd/skills/flowclaw/scripts/*.sh
+chmod +x ~/clawd/skills/flowclaw/scripts/*.py
 
 # Add alias (optional)
-echo 'alias flowstate="bash ~/clawd/skills/flowstate/scripts/flowstate.sh"' >> ~/.zshrc
+echo 'alias flowclaw="bash ~/clawd/skills/flowclaw/scripts/flowclaw.sh"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
@@ -277,7 +277,7 @@ source ~/.zshrc
 ```bash
 # For each Claude Max account (no limit on count):
 claude login                                    # Sign in
-bash ~/clawd/skills/flowstate/scripts/save-account.sh  # Save token
+bash ~/clawd/skills/flowclaw/scripts/save-account.sh  # Save token
 ```
 
 ### Google Antigravity
@@ -293,7 +293,7 @@ brew install ollama
 ollama pull qwen3:235b    # or any model that fits your RAM
 ```
 
-FlowState auto-detects Ollama when it's running — no configuration needed.
+FlowClaw auto-detects Ollama when it's running — no configuration needed.
 
 ---
 
@@ -301,20 +301,20 @@ FlowState auto-detects Ollama when it's running — no configuration needed.
 
 | Command | Description |
 |---------|-------------|
-| `flowstate status [--fresh] [--json]` | Usage dashboard across all providers |
-| `flowstate score [--json]` | Scored ranking of all accounts |
-| `flowstate optimize [--dry-run]` | Reorder OpenClaw routing for optimal usage |
-| `flowstate auto` | Silent optimization (for cron) |
-| `flowstate history [N]` | Routing history with switchover graph |
-| `flowstate test` | Run scoring engine unit tests |
-| `flowstate help` | Show help with ASCII banner |
+| `flowclaw status [--fresh] [--json]` | Usage dashboard across all providers |
+| `flowclaw score [--json]` | Scored ranking of all accounts |
+| `flowclaw optimize [--dry-run]` | Reorder OpenClaw routing for optimal usage |
+| `flowclaw auto` | Silent optimization (for cron) |
+| `flowclaw history [N]` | Routing history with switchover graph |
+| `flowclaw test` | Run scoring engine unit tests |
+| `flowclaw help` | Show help with ASCII banner |
 
 ### Cron Automation
 
 ```bash
 # Re-optimize routing every 30 minutes
 crontab -e
-# Add: */30 * * * * bash ~/clawd/skills/flowstate/scripts/flowstate.sh auto
+# Add: */30 * * * * bash ~/clawd/skills/flowclaw/scripts/flowclaw.sh auto
 ```
 
 ---
@@ -322,19 +322,19 @@ crontab -e
 ## 🏛️ Architecture
 
 ```
-flowstate/
+flowclaw/
 ├── SKILL.md                      # OpenClaw skill manifest
 ├── README.md                     # This file
 ├── LICENSE                       # MIT
 ├── .gitignore
 ├── scripts/
-│   ├── flowstate.sh              # Main CLI (banner, commands, routing)
+│   ├── flowclaw.sh              # Main CLI (banner, commands, routing)
 │   ├── provider-usage.sh         # Usage collector (queries all APIs)
 │   ├── scoring-engine.py         # EDF urgency scoring algorithm
 │   └── save-account.sh           # Account token setup helper
 └── config/                       # Auto-generated, gitignored
-    ├── flowstate-state.json      # Current routing state
-    └── flowstate-history.jsonl   # Routing decision log
+    ├── flowclaw-state.json      # Current routing state
+    └── flowclaw-history.jsonl   # Routing decision log
 ```
 
 ---
@@ -343,7 +343,7 @@ flowstate/
 
 - OAuth tokens stored at `~/.openclaw/usage-tokens/` with `600` permissions
 - **No tokens or credentials included** in this repository
-- Tokens are read-only — FlowState never modifies your credentials
+- Tokens are read-only — FlowClaw never modifies your credentials
 - All API calls use HTTPS
 - History file contains only routing decisions, never credentials
 

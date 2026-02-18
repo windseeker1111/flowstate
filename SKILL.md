@@ -1,5 +1,5 @@
 ---
-name: flowstate
+name: flowclaw
 description: "Intelligent LLM load balancer. Maximizes the value of your existing LLM subscriptions by never letting credits go to waste. Scores all provider accounts and dynamically optimizes routing."
 metadata:
   openclaw:
@@ -13,7 +13,7 @@ metadata:
         - python3
 ---
 
-# FlowState — Intelligent LLM Load Balancer
+# FlowClaw — Intelligent LLM Load Balancer
 
 > *Maximize the value of your existing LLM subscriptions by never letting credits go to waste.*
 
@@ -33,19 +33,19 @@ Uses **Earliest Deadline First** scheduling + **perishable inventory** optimizat
 
 ```bash
 # Usage dashboard — all providers at a glance
-flowstate status [--fresh] [--json]
+flowclaw status [--fresh] [--json]
 
 # Scored ranking — which account to use right now
-flowstate score [--json]
+flowclaw score [--json]
 
 # Optimize routing — reorder OpenClaw model priority
-flowstate optimize [--dry-run]
+flowclaw optimize [--dry-run]
 
 # Auto mode — optimize silently (for cron jobs)
-flowstate auto
+flowclaw auto
 
 # Run scoring engine unit tests
-flowstate test
+flowclaw test
 ```
 
 ## Setup
@@ -65,14 +65,14 @@ Install and pull a model:
 brew install ollama
 ollama pull qwen3:235b    # or any model that fits your RAM
 ```
-FlowState auto-detects Ollama if running locally. No additional configuration needed.
+FlowClaw auto-detects Ollama if running locally. No additional configuration needed.
 
 ### Cron Automation
 ```bash
 # Optimize routing every 30 minutes
-clawdbot cron add --name flowstate \
+clawdbot cron add --name flowclaw \
   --schedule "*/30 * * * *" \
-  --command "bash ~/clawd/skills/flowstate/scripts/flowstate.sh auto"
+  --command "bash ~/clawd/skills/flowclaw/scripts/flowclaw.sh auto"
 ```
 
 ## Scoring Algorithm

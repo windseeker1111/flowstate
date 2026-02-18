@@ -1,5 +1,5 @@
 #!/bin/bash
-# FlowState Account Setup — Save Claude Code CLI OAuth token for multi-account monitoring
+# FlowClaw Account Setup — Save Claude Code CLI OAuth token for multi-account monitoring
 # Supports up to 4+ accounts. Run 'claude login', then this script to save the token.
 
 set -euo pipefail
@@ -7,7 +7,7 @@ set -euo pipefail
 TOKEN_DIR="${TOKEN_DIR:-$HOME/.openclaw/usage-tokens}"
 mkdir -p "$TOKEN_DIR"
 
-echo "🧠 FlowState — Add Account"
+echo "🧠 FlowClaw — Add Account"
 echo ""
 
 # Check for Claude Code CLI
@@ -151,4 +151,4 @@ fi
 echo ""
 TOTAL=$(ls "$TOKEN_DIR"/account-*.json 2>/dev/null | wc -l | tr -d ' ')
 echo "📊 Total accounts configured: $TOTAL"
-echo "   Run 'flowstate status --fresh' to see all accounts."
+echo "   Run 'flowclaw status --fresh' to see all accounts."
