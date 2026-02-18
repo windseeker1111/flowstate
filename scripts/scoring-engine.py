@@ -4,7 +4,7 @@
 Reads usage JSON from stdin (produced by usage collector), computes urgency
 scores for each account, and outputs a ranked list with recommended routing.
 
-Providers: Anthropic, Google (Gemini CLI / Antigravity), OpenAI, Ollama
+Providers: Anthropic, Google (Gemini CLI), OpenAI, Ollama
 
 Scoring based on Earliest Deadline First + perishable inventory management:
   score = urgency * 0.4 + availability * 0.3 + proximity * 0.2 + tier_bonus * 0.1
@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 
 # ── Provider tier bonuses (cost optimization) ─────────────────────────
 TIER_BONUS = {
-    "google": 0.8,        # Free tier (Gemini CLI / Antigravity), prefer strongly
+    "google": 0.8,        # Free tier (Gemini CLI), prefer strongly
     "anthropic": 0.0,     # Subscription baseline
     "openai": 0.0,        # API billing baseline
     "ollama": -0.3,       # Quality penalty, but always available
@@ -140,19 +140,13 @@ def score_anthropic(account: dict) -> list[ScoredAccount]:
 
 
 def score_google(account: dict) -> list[ScoredAccount]:
-    """Score a Google account (Antigravity or Gemini CLI).
+    """Score a Google account (via Gemini CLI).
     
     Google provides access to both Claude and Gemini models through a single account.
-    The auth source (Antigravity app vs Gemini CLI) doesn't matter — same quota.
-    OpenClaw provider names:
-      - google-antigravity/* (via Antigravity app OAuth)
-      - google-gemini-cli/* (via Gemini CLI OAuth)
+    OpenClaw provider: google-gemini-cli/*
     """
     email = account.get("email", "?")
-    source = account.get("source", "antigravity")  # "antigravity" or "gemini-cli"
-    
-    # Determine OpenClaw provider prefix based on auth source
-    provider_prefix = "google-antigravity" if source == "antigravity" else "google-gemini-cli"
+    provider_prefix = "google-gemini-cli"
     
     results = []
     models = [
@@ -248,7 +242,7 @@ def score_all(data: dict) -> list[ScoredAccount]:
         provider = entry.get("provider", "")
         if provider == "anthropic":
             scored.extend(score_anthropic(entry))
-        elif provider in ("google", "antigravity"):
+        elif provider == "google":
             scored.extend(score_google(entry))
         elif provider == "openai":
             scored.extend(score_openai(entry))
@@ -300,7 +294,7 @@ def run_tests():
     print(f"  ✅ Test 3: 50% used, resets in 6d → score={late_score:.4f}")
 
     # Test 4: Google 0% → high score (free tier bonus)
-    result = score_google({"email": "t@t.com", "source": "antigravity",
+    result = score_google({"email": "t@t.com",
         "claude": {"used_pct": 0, "resets_in": "12h"},
         "gemini_pro": {"used_pct": 0, "resets_in": "12h"},
         "gemini_flash": {"used_pct": 0, "resets_in": "12h"}})
@@ -309,13 +303,12 @@ def run_tests():
     print(f"  ✅ Test 4: Google 0% → scores={[r.score for r in result]}")
 
     # Test 5: Google mixed usage
-    result = score_google({"email": "t@t.com", "source": "gemini-cli",
+    result = score_google({"email": "t@t.com",
         "claude": {"used_pct": 100, "resets_in": "3h"},
         "gemini_pro": {"used_pct": 50, "resets_in": "6h"},
         "gemini_flash": {"used_pct": 0, "resets_in": "12h"}})
     assert not result[0].available
     assert result[1].available
-    # Verify gemini-cli prefix
     assert "google-gemini-cli" in result[0].profile_id
     print(f"  ✅ Test 5: Google mixed → Claude blocked, Gemini available")
 
@@ -328,7 +321,7 @@ def run_tests():
     # Test 7: Family classification
     assert model_family("anthropic/claude-opus-4-6") == "opus"
     assert model_family("google-gemini-cli/claude-opus-4-6-thinking") == "opus"
-    assert model_family("google-antigravity/gemini-3-pro-high") == "gemini-pro"
+    assert model_family("google-gemini-cli/gemini-3-pro-high") == "gemini-pro"
     assert model_family("openai/gpt-5.2") == "gpt5"
     assert model_family("openai/gpt-5-mini") == "gpt5-mini"
     print(f"  ✅ Test 7: Model family classification correct")
@@ -339,7 +332,7 @@ def run_tests():
          "session": {"utilization": 80, "resets_in": "1h"},
          "weekly": {"utilization": 60, "resets_in": "3d"},
          "extra": {"enabled": False}},
-        {"provider": "google", "source": "antigravity", "email": "g@t.com",
+        {"provider": "google", "email": "g@t.com",
          "claude": {"used_pct": 10, "resets_in": "12h"},
          "gemini_pro": {"used_pct": 5, "resets_in": "12h"},
          "gemini_flash": {"used_pct": 0, "resets_in": "12h"}},

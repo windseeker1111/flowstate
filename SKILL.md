@@ -1,6 +1,6 @@
 ---
 name: flowclaw
-description: "LLM subscription usage monitoring and load balancing for OpenClaw. Track usage across all your Anthropic, Google (Gemini CLI), and local accounts in one dashboard. Optionally auto-balance routing to maximize every credit."
+description: "LLM load balancer for OpenClaw. Track usage across Anthropic, Google, OpenAI, and Ollama in one dashboard. Auto-balance routing to maximize every credit."
 metadata:
   openclaw:
     emoji: "🦞"
@@ -13,29 +13,25 @@ metadata:
         - python3
 ---
 
-# FlowClaw — LLM Usage Monitor & Load Balancer
+# FlowClaw — LLM Load Balancer
 
-> *LLM subscription usage monitoring and load balancing for OpenClaw.*
+> *Track usage. Balance routing. Never waste a credit.*
 
-Track usage across all your LLM subscriptions in one dashboard. Optionally auto-balance routing to the account with the most urgent credits.
+Unified dashboard + auto-routing for all your LLM subscriptions. Uses **Earliest Deadline First** scheduling — accounts resetting soonest are prioritized so unused credits aren't wasted.
 
-Uses **Earliest Deadline First** scheduling + **perishable inventory** optimization — accounts resetting soonest are prioritized so unused credits aren't wasted.
+## Supported Providers
 
-## Provider Support
-
-| Tier | Provider | Status | Scoring |
-|------|----------|--------|---------|
-| 1 | **Google Google (Gemini CLI)** (Claude + Gemini) | ✅ Supported | Free tier → highest priority |
-| 2 | **Anthropic Claude Max** (unlimited accounts) | ✅ Supported | Subscription → use-it-or-lose-it |
-| 3 | **Ollama** (local models) | ✅ Supported | Always available → quality tradeoff |
+| Provider | Auth | Scoring |
+|----------|------|---------|
+| **Anthropic** | Claude Max OAuth (unlimited accounts) | Subscription → use-it-or-lose-it |
+| **Google** | Gemini CLI (`npm i -g @google/gemini-cli`) | Free tier → highest priority |
+| **OpenAI** | API key (`OPENAI_API_KEY`) | Pay-per-token → always available |
+| **Ollama** | Local (auto-detected) | Free → quality tradeoff |
 
 ## Commands
 
 ```bash
-# Usage monitoring — clean usage report across all providers
-flowclaw monitor [--json] [--cached]
-
-# Raw dashboard — all providers at a glance
+# Dashboard — all providers at a glance
 flowclaw status [--fresh] [--json]
 
 # Scored ranking — which account to use right now
@@ -53,45 +49,46 @@ flowclaw test
 
 ## Setup
 
-### Adding Anthropic Max Accounts
-
-For each account (no limit on number of accounts):
-1. `claude login` → sign in with that account
-2. `bash {baseDir}/scripts/save-account.sh` → saves token with label
+### Anthropic (Claude Max)
+```bash
+claude login
+bash {baseDir}/scripts/save-account.sh
+```
 
 ### Google (Gemini CLI)
-Requires Gemini CLI: `npm i -g @google/gemini-cli && gemini` (login via browser)
-
-### Ollama (Local Models)
-Install and pull a model:
 ```bash
-brew install ollama
-ollama pull qwen3:235b    # or any model that fits your RAM
+npm i -g @google/gemini-cli
+gemini    # login via browser
 ```
-FlowClaw auto-detects Ollama if running locally. No additional configuration needed.
+
+### OpenAI
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+### Ollama
+```bash
+brew install ollama && ollama pull qwen3:235b
+# Auto-detected — no config needed
+```
 
 ### Cron Automation
 ```bash
 # Optimize routing every 30 minutes
-clawdbot cron add --name flowclaw \
-  --schedule "*/30 * * * *" \
-  --command "bash ~/clawd/skills/flowclaw/scripts/flowclaw.sh auto"
+*/30 * * * * bash ~/clawd/skills/flowclaw/scripts/flowclaw.sh auto
 ```
 
 ## Scoring Algorithm
 
-Each account gets an urgency score:
-
 ```
 score = urgency(0.4) + availability(0.3) + proximity(0.2) + tier_bonus(0.1)
-
-urgency     = remaining_capacity / hours_until_reset
-availability = √(remaining_capacity)
-proximity   = 1 - (hours_until_reset / window_length)
-tier_bonus  = free(0.8) > subscription(0) > metered(-0.5)
 ```
 
-Hard rules override scoring:
-- 100% utilized on any window → score = 0 (blocked)
-- Free tier always preferred over paid
-- Pay-per-token only used as last resort
+| Factor | Formula | Measures |
+|--------|---------|----------|
+| Urgency | `remaining / hours_to_reset` | Credits wasting per hour |
+| Availability | `√(remaining)` | Dampened capacity |
+| Proximity | `1 - (hours / window)` | Deadline pressure |
+| Tier bonus | Free=+0.8, Sub=0, Local=-0.3 | Cost preference |
+
+**Family-aware:** Only swaps within same capability class (Opus↔Opus, not Opus↔Gemini).

@@ -199,33 +199,29 @@ PYEOF
   fi
 fi
 
-# ── Google (Gemini CLI / Antigravity) ────────────────────────────────
+# ── Google (Gemini CLI) ───────────────────────────────────────────────
 # Auth: Gemini CLI (`npm i -g @google/gemini-cli && gemini`)
-# Metrics: codexbar CLI provides detailed usage; Gemini CLI alone = no metrics
+# Metrics: codexbar provides detailed usage bars; without it = basic status only
 
 if [ "$SHOW_GOOGLE" -eq 1 ]; then
   GOOGLE_FOUND=0
-  GOOGLE_AUTH=""  # "gemini-cli" or "antigravity" — whichever is available
+  HAS_METRICS=0
 
-  # Detect Google auth source
-  if command -v gemini >/dev/null 2>&1; then
-    GOOGLE_AUTH="gemini-cli"
-  fi
-  # Antigravity overrides if available (provides richer metrics)
+  # Check for detailed metrics (codexbar reads Google account usage)
   if command -v codexbar >/dev/null 2>&1; then
-    GOOGLE_AUTH="antigravity"
+    HAS_METRICS=1
   fi
 
-  # Get usage metrics (codexbar provides detailed bars; gemini CLI alone = basic status)
-  if [ "$GOOGLE_AUTH" = "antigravity" ]; then
-    AG_JSON=$(codexbar usage --json 2>/dev/null || echo "[]")
-    if [ "$AG_JSON" != "[]" ] && [ -n "$AG_JSON" ]; then
+  # Get detailed usage metrics if available
+  if [ "$HAS_METRICS" -eq 1 ]; then
+    GOOGLE_JSON=$(codexbar usage --json 2>/dev/null || echo "[]")
+    if [ "$GOOGLE_JSON" != "[]" ] && [ -n "$GOOGLE_JSON" ]; then
       TEXT_OUTPUT+="━━━ Google (Claude + Gemini) ━━━━━━━━━━━━━━━━━\n\n"
       GOOGLE_FOUND=1
 
-      AG_PARSED=$(python3 << PYEOF
+      GOOGLE_PARSED=$(python3 << PYEOF
 import json
-data = json.loads('''$AG_JSON''')
+data = json.loads('''$GOOGLE_JSON''')
 for entry in data:
     u = entry.get('usage', {})
     identity = u.get('identity', {})
@@ -244,35 +240,35 @@ for entry in data:
 PYEOF
       )
 
-      while IFS='|' read -r AG_EMAIL AG_PLAN AG_P_PCT AG_P_RESET AG_S_PCT AG_S_RESET AG_T_PCT AG_T_RESET; do
-        AG_P_LEFT="—"; AG_S_LEFT="—"; AG_T_LEFT="—"
-        if [ -n "$AG_P_RESET" ]; then
-          AG_P_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${AG_P_RESET%Z}" +%s 2>/dev/null || echo 0)
-          [ "$AG_P_TS" -gt 0 ] && AG_P_LEFT=$(secs_to_human $((AG_P_TS - NOW)))
+      while IFS='|' read -r G_EMAIL G_PLAN G_P_PCT G_P_RESET G_S_PCT G_S_RESET G_T_PCT G_T_RESET; do
+        G_P_LEFT="—"; G_S_LEFT="—"; G_T_LEFT="—"
+        if [ -n "$G_P_RESET" ]; then
+          G_P_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${G_P_RESET%Z}" +%s 2>/dev/null || echo 0)
+          [ "$G_P_TS" -gt 0 ] && G_P_LEFT=$(secs_to_human $((G_P_TS - NOW)))
         fi
-        if [ -n "$AG_S_RESET" ]; then
-          AG_S_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${AG_S_RESET%Z}" +%s 2>/dev/null || echo 0)
-          [ "$AG_S_TS" -gt 0 ] && AG_S_LEFT=$(secs_to_human $((AG_S_TS - NOW)))
+        if [ -n "$G_S_RESET" ]; then
+          G_S_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${G_S_RESET%Z}" +%s 2>/dev/null || echo 0)
+          [ "$G_S_TS" -gt 0 ] && G_S_LEFT=$(secs_to_human $((G_S_TS - NOW)))
         fi
-        if [ -n "$AG_T_RESET" ]; then
-          AG_T_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${AG_T_RESET%Z}" +%s 2>/dev/null || echo 0)
-          [ "$AG_T_TS" -gt 0 ] && AG_T_LEFT=$(secs_to_human $((AG_T_TS - NOW)))
+        if [ -n "$G_T_RESET" ]; then
+          G_T_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${G_T_RESET%Z}" +%s 2>/dev/null || echo 0)
+          [ "$G_T_TS" -gt 0 ] && G_T_LEFT=$(secs_to_human $((G_T_TS - NOW)))
         fi
 
-        USED_P=${AG_P_PCT%.*}; USED_S=${AG_S_PCT%.*}; USED_T=${AG_T_PCT%.*}
+        USED_P=${G_P_PCT%.*}; USED_S=${G_S_PCT%.*}; USED_T=${G_T_PCT%.*}
 
-        TEXT_OUTPUT+="  🌐 $AG_EMAIL — Google ($AG_PLAN)\n"
-        TEXT_OUTPUT+="     🤖 Claude:      $(dot $USED_P) $(bar $USED_P) ${USED_P}%  ⏳${AG_P_LEFT}\n"
-        TEXT_OUTPUT+="     ♊ Gemini Pro:   $(dot $USED_S) $(bar $USED_S) ${USED_S}%  ⏳${AG_S_LEFT}\n"
-        TEXT_OUTPUT+="     ⚡ Gemini Flash: $(dot $USED_T) $(bar $USED_T) ${USED_T}%  ⏳${AG_T_LEFT}\n"
+        TEXT_OUTPUT+="  🌐 $G_EMAIL — Google ($G_PLAN)\n"
+        TEXT_OUTPUT+="     🤖 Claude:      $(dot $USED_P) $(bar $USED_P) ${USED_P}%  ⏳${G_P_LEFT}\n"
+        TEXT_OUTPUT+="     ♊ Gemini Pro:   $(dot $USED_S) $(bar $USED_S) ${USED_S}%  ⏳${G_S_LEFT}\n"
+        TEXT_OUTPUT+="     ⚡ Gemini Flash: $(dot $USED_T) $(bar $USED_T) ${USED_T}%  ⏳${G_T_LEFT}\n"
         TEXT_OUTPUT+="\n"
 
-        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"gemini-cli\",\"email\":\"$AG_EMAIL\",\"plan\":\"$AG_PLAN\",\"claude\":{\"used_pct\":$USED_P,\"resets_in\":\"$AG_P_LEFT\"},\"gemini_pro\":{\"used_pct\":$USED_S,\"resets_in\":\"$AG_S_LEFT\"},\"gemini_flash\":{\"used_pct\":$USED_T,\"resets_in\":\"$AG_T_LEFT\"}}"
-      done <<< "$AG_PARSED"
+        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"gemini-cli\",\"email\":\"$G_EMAIL\",\"plan\":\"$G_PLAN\",\"claude\":{\"used_pct\":$USED_P,\"resets_in\":\"$G_P_LEFT\"},\"gemini_pro\":{\"used_pct\":$USED_S,\"resets_in\":\"$G_S_LEFT\"},\"gemini_flash\":{\"used_pct\":$USED_T,\"resets_in\":\"$G_T_LEFT\"}}"
+      done <<< "$GOOGLE_PARSED"
     fi
 
   elif [ "$GOOGLE_AUTH" = "gemini-cli" ]; then
-    # Gemini CLI authenticated but no codexbar for metrics
+    # No detailed metrics — check if Gemini CLI is authenticated
     # Quick auth check
     GEMINI_TEST=$(timeout 5 gemini -p "Say OK" --model gemini-2.0-flash 2>/dev/null || echo "")
     if [ -n "$GEMINI_TEST" ]; then
