@@ -257,6 +257,28 @@ for r in d.get('ranked', []):
   echo "  📋 Anthropic profile order: $anthropic_order"
   echo ""
 
+  # ── Safety guard: block AG switch if Anthropic is still available ──
+  if [[ "$recommended_primary" == google-antigravity/* ]]; then
+    local any_anthropic_available
+    any_anthropic_available=$(echo "$scored_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+available = [r for r in d.get('ranked', []) if r['provider'] == 'anthropic' and r['available']]
+print('yes' if available else 'no')
+")
+    if [ "$any_anthropic_available" = "yes" ]; then
+      echo "  ⚠️  BLOCKED: AG models have tool schema incompatibility with OpenClaw."
+      echo "     Anthropic profiles still available — keeping current routing."
+      echo "     (AG causes 'unsupported keywords' errors that break tool calls)"
+      log_history "$recommended_primary" "blocked" "ag_tool_compat"
+      return
+    else
+      echo "  ⚠️  WARNING: Switching to AG model. Tool calls may be degraded."
+      echo "     All Anthropic profiles exhausted — AG is last resort."
+      echo ""
+    fi
+  fi
+
   if [ "$dry_run" -eq 1 ]; then
     echo "  🔍 DRY RUN — no changes applied."
     echo ""
