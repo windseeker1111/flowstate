@@ -22,7 +22,7 @@
 > **🦞 An [OpenClaw](https://github.com/openclaw/openclaw) skill that gives you a unified view of all your LLM subscriptions and optionally auto-balances routing to maximize every credit.**
 
 FlowClaw does two things:
-1. **📊 Usage Monitoring** — See usage across all your Anthropic, Google Antigravity, and local accounts in one dashboard
+1. **📊 Usage Monitoring** — See usage across all your Anthropic, Google (Gemini CLI), and local accounts in one dashboard
 2. **🧠 Auto Load Balancing** — Automatically route to the account with the most urgent credits using EDF scheduling
 
 Use either feature independently, or both together.
@@ -31,14 +31,14 @@ Use either feature independently, or both together.
 
 ## 🎯 The Problem
 
-Flat-rate LLM subscriptions like Claude Max and Google Antigravity have **usage windows that reset on a schedule**. If you don't use your credits before the window closes, they're gone. If you have multiple accounts across multiple providers, you're almost certainly leaving money on the table.
+Flat-rate LLM subscriptions like Claude Max and Google (Gemini CLI) have **usage windows that reset on a schedule**. If you don't use your credits before the window closes, they're gone. If you have multiple accounts across multiple providers, you're almost certainly leaving money on the table.
 
 **Without FlowClaw:**
 ```
   ┌─────────────────────────────────────────────────────────┐
   │  Account A     ████████████████████░░░░░  80% used      │  ← Resets in 30min!
   │  Account B     ██░░░░░░░░░░░░░░░░░░░░░░  10% used      │  ← Resets in 11h
-  │  Antigravity   ░░░░░░░░░░░░░░░░░░░░░░░░   0% used      │  ← Resets in 12h
+  │  Google   ░░░░░░░░░░░░░░░░░░░░░░░░   0% used      │  ← Resets in 12h
   │                                                         │
   │  You're using Account B... wasting 80% of Account A 💸  │
   └─────────────────────────────────────────────────────────┘
@@ -50,7 +50,7 @@ Flat-rate LLM subscriptions like Claude Max and Google Antigravity have **usage 
   │  ⚡ SWITCH → Account A  (score: 0.9412, resets in 30m)  │
   │                                                         │
   │  "Use Account A now — 80% remaining credits expire in   │
-  │   30 minutes. Account B and Antigravity can wait."      │
+  │   30 minutes. Account B and Google can wait."      │
   └─────────────────────────────────────────────────────────┘
 ```
 
@@ -59,7 +59,7 @@ Flat-rate LLM subscriptions like Claude Max and Google Antigravity have **usage 
 ## ✨ Features
 
 **📊 Monitoring:**
-- 🦞 **Unified dashboard** — See all your Anthropic, Antigravity, and local accounts in one view
+- 🦞 **Unified dashboard** — See all your Anthropic, Google, and local accounts in one view
 - 📈 **Usage tracking** — Live usage bars with reset timers for every subscription window
 - 💾 **JSON export** — `flowclaw monitor --json` for scripting and integrations
 
@@ -96,7 +96,7 @@ $ flowclaw status --fresh
      ⏱️  5h Session:  🟢 ███░░░░░░░ 30%   ⏳4h 10m
      📅 7d Overall:   🟢 █░░░░░░░░░ 12%   ⏳5d 3h
 
-━━━ Google Antigravity ━━━━━━━━━━━━━━━━━━━━━━
+━━━ Google (Gemini CLI) ━━━━━━━━━━━━━━━━━━━━━━
 
   🌐 user@example.com — Pro
      🤖 Claude:      🟢 ░░░░░░░░░░ 0%    ⏳11h 52m
@@ -121,13 +121,13 @@ $ flowclaw score
 ```
 🧠 FlowClaw Scoring
 
-  #1  ✅ ag-claude        score=0.4143  0% used       ← recommended
+  #1  ✅ google-claude        score=0.4143  0% used       ← recommended
   #2  ✅ ag-gemini_pro    score=0.4109  0% used
   #3  ✅ personal         score=0.3812  5h:30% 7d:12%
   #4  🚫 work             score=0.0000  5h session limit
   #5  ✅ local-qwen3      score=0.2700  Local (60.1GB)
 
-  🎯 Recommended: ag-claude (google-antigravity/claude-opus-4-6-thinking)
+  🎯 Recommended: google-claude (google-gemini-cli/claude-opus-4-6-thinking)
 ```
 
 ---
@@ -144,17 +144,17 @@ $ flowclaw optimize
 
   #1  ✅ ag-gemini_pro    score=0.4110  0% used
   #2  ✅ ag-gemini_flash  score=0.4110  0% used
-  #3  ✅ ag-claude        score=0.3810  20% used
+  #3  ✅ google-claude        score=0.3810  20% used
   #4  🚫 work             score=0.0000  5h session limit (resets in 8h 12m)
   #5  🚫 personal         score=0.0000  5h session limit (resets in 8h 12m)
 
-  🎯 Recommended primary: google-antigravity/gemini-3-pro-high
+  🎯 Recommended primary: google-gemini-cli/gemini-3-pro-high
   📋 Anthropic profile order: anthropic:work anthropic:personal
 
   ⚙️  Applying...
   ✅ Anthropic profile order updated
-  ✅ Primary model set to google-antigravity/gemini-3-pro-high
-  ✅ Fallbacks: anthropic/claude-opus-4-6, google-antigravity/claude-opus-4-6-thinking
+  ✅ Primary model set to google-gemini-cli/gemini-3-pro-high
+  ✅ Fallbacks: anthropic/claude-opus-4-6, google-gemini-cli/claude-opus-4-6-thinking
 
   ✅ FlowClaw optimized!
 ```
@@ -169,14 +169,14 @@ $ flowclaw optimize
 
   #1  ✅ work             score=0.5200  5h:0% 7d:41%    ← session just reset!
   #2  ✅ personal         score=0.4800  5h:0% 7d:12%
-  #3  ✅ ag-claude        score=0.3810  20% used
+  #3  ✅ google-claude        score=0.3810  20% used
   #4  ✅ ag-gemini_pro    score=0.3500  15% used
 
   🎯 Recommended primary: anthropic/claude-opus-4-6
 
   ⚙️  Applying...
   ✅ Primary model set to anthropic/claude-opus-4-6
-  ✅ Fallbacks: google-antigravity/claude-opus-4-6-thinking, google-antigravity/gemini-3-pro-high
+  ✅ Fallbacks: google-gemini-cli/claude-opus-4-6-thinking, google-gemini-cli/gemini-3-pro-high
 
   ✅ FlowClaw optimized!
 ```
@@ -195,13 +195,13 @@ $ flowclaw history
   │ Feb 18 09:00AM  🔵 anthropic/claude-opus-4-6
   │ Feb 18 10:30AM  🔵 anthropic/claude-opus-4-6
   │  ⚡ SWITCH: anthropic/claude-opus-4-6
-  │         → google-antigravity/claude-opus-4-6-thinking
-  │ Feb 18 11:00AM  🟢 google-antigravity/claude-opus-4-6-thinking
-  │ Feb 18 11:30AM  🟢 google-antigravity/claude-opus-4-6-thinking
-  │  ⚡ SWITCH: google-antigravity/claude-opus-4-6-thinking
-  │         → google-antigravity/gemini-3-pro-high
-  │ Feb 18 12:00PM  🟠 google-antigravity/gemini-3-pro-high
-  │  ⚡ SWITCH: google-antigravity/gemini-3-pro-high
+  │         → google-gemini-cli/claude-opus-4-6-thinking
+  │ Feb 18 11:00AM  🟢 google-gemini-cli/claude-opus-4-6-thinking
+  │ Feb 18 11:30AM  🟢 google-gemini-cli/claude-opus-4-6-thinking
+  │  ⚡ SWITCH: google-gemini-cli/claude-opus-4-6-thinking
+  │         → google-gemini-cli/gemini-3-pro-high
+  │ Feb 18 12:00PM  🟠 google-gemini-cli/gemini-3-pro-high
+  │  ⚡ SWITCH: google-gemini-cli/gemini-3-pro-high
   │         → anthropic/claude-opus-4-6
   │ Feb 18 03:30PM  🔵 anthropic/claude-opus-4-6
   │ Feb 18 04:00PM  🔵 anthropic/claude-opus-4-6
@@ -255,7 +255,7 @@ score = urgency × 0.4  +  availability × 0.3  +  proximity × 0.2  +  tier_bon
 
 | Tier | Provider | Reset Windows | Scoring |
 |------|----------|---------------|---------|
-| 1 | **Google Antigravity** | 12h rolling | Free cloud → highest priority |
+| 1 | **Google (Gemini CLI)** | 12h rolling | Free cloud → highest priority |
 | 2 | **Anthropic Claude Max** | 5h session + 7d weekly | Subscription → use-it-or-lose-it |
 | 3 | **Ollama** (local) | Never | Always available → quality tradeoff |
 
@@ -264,17 +264,17 @@ score = urgency × 0.4  +  availability × 0.3  +  proximity × 0.2  +  tier_bon
 ## ⚠️ Known Issues
 
 ### OpenClaw Google Provider — Schema Sanitization Required
-OpenClaw's `google-antigravity` provider requires a one-line patch to sanitize tool schemas. Without it, completions hang indefinitely. The `google-gemini-cli` provider works out of the box.
+OpenClaw's `google-gemini-cli` provider requires a one-line patch to sanitize tool schemas. Without it, completions hang indefinitely. The `google-gemini-cli` provider works out of the box.
 
 **Patch** (apply to `pi-embedded-*.js` in OpenClaw's dist):
 ```js
 // BEFORE:
 if (params.provider !== "google-gemini-cli") return params.tools;
 // AFTER:
-if (params.provider !== "google-gemini-cli" && params.provider !== "google-antigravity") return params.tools;
+if (params.provider !== "google-gemini-cli" && params.provider !== "google-gemini-cli") return params.tools;
 ```
 
-**Recommendation:** Use `google-gemini-cli` auth (Gemini CLI) instead of Antigravity for cleanest experience. Both access the same Google quota.
+**Recommendation:** Use `google-gemini-cli` auth (Gemini CLI) instead of Google for cleanest experience. Both access the same Google quota.
 
 ## 🚀 Installation
 
@@ -307,10 +307,10 @@ claude login                                    # Sign in
 bash ~/clawd/skills/flowclaw/scripts/save-account.sh  # Save token
 ```
 
-### Google Antigravity
+### Google (Gemini CLI)
 
 ```bash
-brew install --cask steipete/tap/codexbar
+npm i -g @google/gemini-cli && gemini  # login via browser
 ```
 
 ### Ollama (Local Fallback)

@@ -258,7 +258,7 @@ for r in d.get('ranked', []):
   echo ""
 
   # ── Safety guard: block AG switch if Anthropic is still available ──
-  if [[ "$recommended_primary" == google-antigravity/* ]]; then
+  if [[ "$recommended_primary" == google-antigravity/* ]] || [[ "$recommended_primary" == google-gemini-cli/* ]]; then
     local any_anthropic_available
     any_anthropic_available=$(echo "$scored_json" | python3 -c "
 import json, sys

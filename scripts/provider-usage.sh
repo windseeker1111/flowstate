@@ -199,16 +199,28 @@ PYEOF
   fi
 fi
 
-# ── Google (Gemini CLI + Antigravity) ────────────────────────────────
+# ── Google (Gemini CLI / Antigravity) ────────────────────────────────
+# Auth: Gemini CLI (`npm i -g @google/gemini-cli && gemini`)
+# Metrics: codexbar CLI provides detailed usage; Gemini CLI alone = no metrics
 
 if [ "$SHOW_GOOGLE" -eq 1 ]; then
   GOOGLE_FOUND=0
+  GOOGLE_AUTH=""  # "gemini-cli" or "antigravity" — whichever is available
 
-  # Method 1: Antigravity (codexbar CLI)
+  # Detect Google auth source
+  if command -v gemini >/dev/null 2>&1; then
+    GOOGLE_AUTH="gemini-cli"
+  fi
+  # Antigravity overrides if available (provides richer metrics)
   if command -v codexbar >/dev/null 2>&1; then
+    GOOGLE_AUTH="antigravity"
+  fi
+
+  # Get usage metrics (codexbar provides detailed bars; gemini CLI alone = basic status)
+  if [ "$GOOGLE_AUTH" = "antigravity" ]; then
     AG_JSON=$(codexbar usage --json 2>/dev/null || echo "[]")
     if [ "$AG_JSON" != "[]" ] && [ -n "$AG_JSON" ]; then
-      [ "$GOOGLE_FOUND" -eq 0 ] && TEXT_OUTPUT+="━━━ Google (Claude + Gemini) ━━━━━━━━━━━━━━━━━\n\n"
+      TEXT_OUTPUT+="━━━ Google (Claude + Gemini) ━━━━━━━━━━━━━━━━━\n\n"
       GOOGLE_FOUND=1
 
       AG_PARSED=$(python3 << PYEOF
@@ -255,27 +267,22 @@ PYEOF
         TEXT_OUTPUT+="     ⚡ Gemini Flash: $(dot $USED_T) $(bar $USED_T) ${USED_T}%  ⏳${AG_T_LEFT}\n"
         TEXT_OUTPUT+="\n"
 
-        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"antigravity\",\"email\":\"$AG_EMAIL\",\"plan\":\"$AG_PLAN\",\"claude\":{\"used_pct\":$USED_P,\"resets_in\":\"$AG_P_LEFT\"},\"gemini_pro\":{\"used_pct\":$USED_S,\"resets_in\":\"$AG_S_LEFT\"},\"gemini_flash\":{\"used_pct\":$USED_T,\"resets_in\":\"$AG_T_LEFT\"}}"
+        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"gemini-cli\",\"email\":\"$AG_EMAIL\",\"plan\":\"$AG_PLAN\",\"claude\":{\"used_pct\":$USED_P,\"resets_in\":\"$AG_P_LEFT\"},\"gemini_pro\":{\"used_pct\":$USED_S,\"resets_in\":\"$AG_S_LEFT\"},\"gemini_flash\":{\"used_pct\":$USED_T,\"resets_in\":\"$AG_T_LEFT\"}}"
       done <<< "$AG_PARSED"
     fi
-  fi
 
-  # Method 2: Gemini CLI (if authenticated)
-  if command -v gemini >/dev/null 2>&1; then
-    # Gemini CLI shares the same Google account quota as Antigravity
-    # Only show if we didn't already find usage via Antigravity
-    if [ "$GOOGLE_FOUND" -eq 0 ]; then
-      # Test if gemini CLI is authenticated by running a minimal check
-      GEMINI_TEST=$(timeout 5 gemini -p "Say OK" --model gemini-2.0-flash 2>/dev/null || echo "")
-      if [ -n "$GEMINI_TEST" ]; then
-        TEXT_OUTPUT+="━━━ Google (Gemini CLI) ━━━━━━━━━━━━━━━━━━━━━\n\n"
-        TEXT_OUTPUT+="  🌐 Gemini CLI authenticated\n"
-        TEXT_OUTPUT+="     ♊ Available models: gemini-3-pro, gemini-3-flash, claude-opus-4-6\n"
-        TEXT_OUTPUT+="     ℹ️  Usage quotas shared with Google account\n"
-        TEXT_OUTPUT+="     ⚠️  Install Antigravity app for detailed usage metrics\n\n"
-        GOOGLE_FOUND=1
-        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"gemini-cli\",\"authenticated\":true,\"note\":\"Install Antigravity for detailed metrics\"}"
-      fi
+  elif [ "$GOOGLE_AUTH" = "gemini-cli" ]; then
+    # Gemini CLI authenticated but no codexbar for metrics
+    # Quick auth check
+    GEMINI_TEST=$(timeout 5 gemini -p "Say OK" --model gemini-2.0-flash 2>/dev/null || echo "")
+    if [ -n "$GEMINI_TEST" ]; then
+      TEXT_OUTPUT+="━━━ Google (Gemini CLI) ━━━━━━━━━━━━━━━━━━━━━\n\n"
+      TEXT_OUTPUT+="  🌐 Gemini CLI authenticated ✅\n"
+      TEXT_OUTPUT+="     ♊ Models: Claude Opus, Gemini Pro, Gemini Flash\n"
+      TEXT_OUTPUT+="     ℹ️  Install codexbar for detailed usage metrics:\n"
+      TEXT_OUTPUT+="        brew install --cask steipete/tap/codexbar\n\n"
+      GOOGLE_FOUND=1
+      JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"gemini-cli\",\"authenticated\":true,\"note\":\"Install codexbar for detailed usage metrics\"}"
     fi
   fi
 fi

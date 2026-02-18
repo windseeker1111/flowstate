@@ -1,6 +1,6 @@
 ---
 name: flowclaw
-description: "LLM subscription usage monitoring and load balancing for OpenClaw. Track usage across all your Anthropic, Antigravity, and local accounts in one dashboard. Optionally auto-balance routing to maximize every credit."
+description: "LLM subscription usage monitoring and load balancing for OpenClaw. Track usage across all your Anthropic, Google (Gemini CLI), and local accounts in one dashboard. Optionally auto-balance routing to maximize every credit."
 metadata:
   openclaw:
     emoji: "🦞"
@@ -25,7 +25,7 @@ Uses **Earliest Deadline First** scheduling + **perishable inventory** optimizat
 
 | Tier | Provider | Status | Scoring |
 |------|----------|--------|---------|
-| 1 | **Google Antigravity** (Claude + Gemini) | ✅ Supported | Free tier → highest priority |
+| 1 | **Google Google (Gemini CLI)** (Claude + Gemini) | ✅ Supported | Free tier → highest priority |
 | 2 | **Anthropic Claude Max** (unlimited accounts) | ✅ Supported | Subscription → use-it-or-lose-it |
 | 3 | **Ollama** (local models) | ✅ Supported | Always available → quality tradeoff |
 
@@ -59,8 +59,8 @@ For each account (no limit on number of accounts):
 1. `claude login` → sign in with that account
 2. `bash {baseDir}/scripts/save-account.sh` → saves token with label
 
-### Antigravity
-Requires CodexBar CLI: `brew install --cask steipete/tap/codexbar`
+### Google (Gemini CLI)
+Requires Gemini CLI: `npm i -g @google/gemini-cli && gemini` (login via browser)
 
 ### Ollama (Local Models)
 Install and pull a model:
