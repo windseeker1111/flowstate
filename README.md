@@ -17,7 +17,9 @@
       ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
 ```
 
-An [OpenClaw](https://github.com/openclaw/openclaw) skill that gives you a unified view of all your LLM subscriptions and optionally auto-balances routing to maximize every credit.
+**FlowClaw** is the unkillable connectivity layer for [OpenClaw](https://github.com/openclaw/openclaw). It monitors every subscription, balances every credit, and fails over to local silicon when the cloud goes dark.
+
+It ensures your agent **never gets stuck** by intelligently routing prompts to the best available provider — whether that's a fresh Claude subscription, a free Google quota, or a local Ollama model.
 
 **Supported Providers:**
 
@@ -28,13 +30,15 @@ An [OpenClaw](https://github.com/openclaw/openclaw) skill that gives you a unifi
 | **Google Antigravity** | codexbar | Claude, Gemini Pro/Flash per-model (12h rolling) |
 | **OpenAI Codex** | OAuth via OpenClaw | 3h + daily windows, plan type, credits |
 | **GitHub Copilot** | OAuth via OpenClaw | Premium + Chat quota |
-| **Ollama** | Local (auto-detected) | Any downloaded model |
+| **Ollama** | Local (auto-detected) | Any downloaded model (fallback) |
 
 ---
 
 ## 🎯 The Problem
 
 Flat-rate LLM subscriptions like Claude Max and Google Gemini CLI have **usage windows that reset on a schedule**. If you don't use your credits before the window closes, they're gone. If you have multiple accounts across multiple providers, you're almost certainly leaving money on the table.
+
+Worse, when a provider goes down or you hit a hard limit, your agent stops.
 
 **Without FlowClaw:**
 ```
@@ -63,14 +67,13 @@ Flat-rate LLM subscriptions like Claude Max and Google Gemini CLI have **usage w
 
 ## ✨ Features
 
-- 🦞 **6 providers** — Anthropic, Gemini CLI, Antigravity, OpenAI Codex, GitHub Copilot, Ollama
-- 📈 **Source API data** — Real usage from provider APIs, not calculated estimates
-- 👥 **Multi-account** — Unlimited Anthropic accounts, all others via OpenClaw
-- 🧠 **EDF scoring** — Earliest Deadline First algorithm scores accounts by urgency
-- 🔄 **Auto switching** — Reorders your OpenClaw model routing when better options are available
-- 🏠 **Local fallback** — Auto-detects Ollama as always-available fallback
-- 📊 **Family-aware** — Only swaps within same capability class (Opus↔Opus, not Opus↔Gemini)
-- ⏱️ **Cron-ready** — `flowclaw auto` runs silently for hands-free optimization
+- 🦞 **Unstoppable Agents** — Automatically fails over to local Ollama models if all cloud providers are down or exhausted.
+- 📈 **Real-time Metrics** — Queries provider APIs directly for accurate usage bars and reset timers.
+- 👥 **Multi-account** — Juggle unlimited Anthropic accounts seamlessly.
+- 🧠 **EDF Scoring** — Earliest Deadline First algorithm prioritizes credits that are about to expire.
+- 🔄 **Smart Routing** — Reconfigures OpenClaw's model priority on the fly.
+- 📊 **Family-aware** — Only swaps within the same capability class (Opus↔Opus, not Opus↔Gemini).
+- ⏱️ **Cron-ready** — `flowclaw auto` runs silently in the background to keep your agent optimized.
 
 ---
 
@@ -133,15 +136,17 @@ $ flowclaw score
 ```
 🧠 FlowClaw Scoring
 
-  #1  ✅ google-claude    [opus]         score=0.4143  0% used       ← recommended
-  #2  ✅ google-gemini    [gemini-pro]   score=0.4109  0% used
-  #3  ✅ personal         [opus]         score=0.3812  5h:30% 7d:12%
-  #4  ✅ openai-api       [gpt5]         score=0.5000  API (50K today)
-  #5  🚫 work             [opus]         score=0.0000  5h session limit
-  #6  ✅ local-qwen3      [local]        score=0.2700  Local (60.1GB)
+  #1  ✅ xtreme          [opus]         score=0.2026  5h:74% 7d:51%    ← recommended
+  #2  ✅ epic            [opus]         score=0.1525  5h:11% 7d:96%
+  #3  ✅ google-claude   [opus]         score=0.5550  0% used
+  #4  ✅ google-gemini   [gemini-pro]   score=0.5550  0% used
+  #5  ✅ openai-codex    [gpt5]         score=0.6000  API
+  #6  ✅ local-qwen3     [local]        score=0.2200  Local (60.1GB)
 
-  🎯 Recommended: google-claude (google-gemini-cli/claude-opus-4-6-thinking)
+  🎯 Recommended: xtreme (anthropic/claude-opus-4-6)
 ```
+
+> **Why xtreme over epic?** Even though epic has more 5h session capacity (11% vs 74%), xtreme has vastly more 7d weekly headroom (51% vs 96%). FlowClaw conserves the account with more long-term room.
 
 ---
 
@@ -157,7 +162,7 @@ FlowClaw detects the best routing option, swaps your primary model, and reorgani
 🧠 FlowClaw Optimization
 
   🎯 Recommended primary: google-gemini-cli/claude-opus-4-6-thinking
-  📋 Anthropic profile order: anthropic:work anthropic:personal
+  📋 Anthropic profile order: anthropic:xtreme anthropic:epic
 
   ⚙️  Applying...
   ✅ Anthropic profile order updated
@@ -171,32 +176,137 @@ FlowClaw detects the best routing option, swaps your primary model, and reorgani
 
 ## 🔬 How the Scoring Algorithm Works
 
-Each account gets an **urgency score** from 0.0 to ~1.5:
+FlowClaw treats every subscription window as **perishable inventory** — like fresh groceries with expiration dates. Credits that expire soonest should be used first.
+
+### The Formula
 
 ```
 score = urgency × 0.30 + availability × 0.25 + proximity × 0.15
       + weekly_headroom × 0.20 + tier_bonus × 0.10
 ```
 
-| Factor | Formula | What it measures |
-|--------|---------|-----------------|
-| **Urgency** | `remaining / hours_to_reset` | Credits wasting per hour |
-| **Availability** | `√(remaining)` | Dampened remaining capacity |
-| **Proximity** | `1 - (hours_to_reset / window)` | How close to reset deadline |
-| **Weekly headroom** | `(100 - weekly_pct) / 100` | 7-day capacity remaining |
-| **Tier bonus** | Free=+0.8, Paid=0, Local=-0.3 | Provider cost preference |
+| Factor | Weight | Formula | What it measures |
+|--------|--------|---------|-----------------|
+| **Urgency** | 30% | `remaining / hours_to_reset` | Credits wasting per hour |
+| **Availability** | 25% | `√(remaining)` | Dampened remaining capacity |
+| **Proximity** | 15% | `1 - (hours / window)` | How close to reset deadline |
+| **Weekly headroom** | 20% | `(100 - weekly%) / 100` | 7-day capacity remaining |
+| **Tier bonus** | 10% | Free=+0.8, Paid=0, Local=-0.3 | Provider cost preference |
 
-### Perishable Inventory Rules
+### Perishable Inventory: The Core Insight
 
-Both 5h session and 7d weekly windows are treated as perishable inventory:
+Both the **5-hour session** and **7-day weekly** windows are perishable. The algorithm balances both:
 
-- **Normal**: Account at 96% weekly → deprioritized (save remaining credits)
-- **≤12h to weekly reset**: Penalty fades linearly (credits becoming perishable)
-- **≤6h to weekly reset**: Full burn mode — weekly penalty ignored entirely
-- **100% utilized** on any window → score = 0 (blocked)
-- **Free cloud tiers** (Google/Antigravity) always preferred over paid subscriptions
+```
+  5h Session Window                    7-Day Weekly Window
+  ┌──────────────────────┐             ┌──────────────────────┐
+  │ ██████████████░░░░░░ │ 74%         │ █████████░░░░░░░░░░░ │ 51%
+  │ Resets in 11h        │             │ Resets in 6d 10h     │
+  │ → Session credits    │             │ → Weekly budget      │
+  │   are replenished    │             │   NOT replenished    │
+  │   frequently         │             │   for 6+ days!       │
+  └──────────────────────┘             └──────────────────────┘
+         ↑ Less urgent                        ↑ More important
+```
+
+### 📖 Real-World Scoring Examples
+
+#### Scenario 1: Weekly Headroom Conservation
+
+> *"Which account should I use when both have session capacity?"*
+
+```
+  Account A (xtreme):  5h session = 74%   7d weekly = 51%   resets in 6d
+  Account B (epic):    5h session = 11%   7d weekly = 96%   resets in 1d
+```
+
+```
+  xtreme  →  score = 0.2026   ✅ Winner
+  epic    →  score = 0.1525   ❌ Deprioritized
+
+  Why? epic is at 96% of its weekly budget. Using it more risks hitting
+  the 7-day limit. xtreme has 49% weekly headroom — much safer to use.
+```
+
+#### Scenario 2: Burn Mode (≤6h to Weekly Reset)
+
+> *"But what if epic's weekly window is about to reset?"*
+
+```
+  Account A (xtreme):  5h session = 74%   7d weekly = 51%   resets in 6d
+  Account B (epic):    5h session = 11%   7d weekly = 96%   resets in 5h ← expiring!
+```
+
+```
+  epic    →  score = 0.3679   ✅ Winner — BURN IT!
+  xtreme  →  score = 0.2026   ❌ Save for later
+
+  Why? epic's weekly window resets in 5h. Those remaining 4% of credits
+  vanish in 5 hours anyway — use them now! The weekly penalty is removed
+  entirely when ≤6h remain. This is the "perishable grocery" rule:
+  eat what expires first.
+```
+
+#### Scenario 3: Session Limit Hit
+
+> *"What if an account is completely blocked?"*
+
+```
+  Account A (xtreme):  5h session = 100%  ← BLOCKED   resets in 2h
+  Account B (epic):    5h session = 11%   7d weekly = 96%   resets in 1d
+  Google (free):       Claude = 0%        resets in 12h
+```
+
+```
+  google  →  score = 0.5550   ✅ Winner — free tier, 0% used
+  epic    →  score = 0.1525   ✅ Available but conserve it
+  xtreme  →  score = 0.0000   🚫 Blocked (can't use until 2h reset)
+
+  Why? 100% on ANY window = instant score 0. Google's free tier gets
+  a +0.8 tier bonus, making it the clear winner when available.
+```
+
+#### Scenario 4: Cross-Provider Routing
+
+> *"FlowClaw picks the best option across ALL providers."*
+
+```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  Provider              Model           Score    Status          │
+  │─────────────────────────────────────────────────────────────────│
+  │  Google Antigravity    claude-opus     0.5550   0% used   ← #1 │
+  │  Google Antigravity    gemini-pro      0.5550   0% used        │
+  │  Anthropic (xtreme)    claude-opus     0.2026   5h:74% 7d:51%  │
+  │  Anthropic (epic)      claude-opus     0.1525   5h:11% 7d:96%  │
+  │  OpenAI Codex          gpt-5.2        0.6000   API             │
+  │  Ollama                qwen3:235b     0.2200   Local           │
+  └─────────────────────────────────────────────────────────────────┘
+
+  Family-aware routing:
+    Opus family  → Google Antigravity (free, 0% used)
+    Gemini family → Google Antigravity gemini-pro
+    GPT family   → OpenAI Codex
+    Local family → Ollama qwen3
+```
+
+### Transition Zones
+
+The weekly headroom penalty doesn't flip like a switch — it fades smoothly:
+
+```
+  Time to weekly reset    Weekly penalty    Behavior
+  ──────────────────────────────────────────────────────
+  > 12h                   Full              Conserve weekly capacity
+  12h → 6h                Fades linearly    Transitioning to burn mode
+  ≤ 6h                    None (= 1.0)      Full burn — use it or lose it
+```
+
+### Hard Rules
+
+- **100% on any window** → score = 0 (completely blocked)
+- **Free tiers** (Google/Antigravity) → +0.8 bonus (always preferred)
 - **Family-aware** — only swaps within same capability class (Opus↔Opus, Gemini↔Gemini)
-- **Local models** are always available, never score 0
+- **Local models** — always available, never blocked, slight quality penalty
 
 ---
 
