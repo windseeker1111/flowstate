@@ -261,6 +261,16 @@ score = urgency × 0.4  +  availability × 0.3  +  proximity × 0.2  +  tier_bon
 
 ---
 
+## ⚠️ Known Issues
+
+### Google Antigravity Fallback Limitations
+When FlowClaw routes to `google-antigravity/*` models, two OpenClaw-level issues may cause degraded operation:
+
+1. **Tool schema incompatibility** — OpenClaw's tool definitions use JSON Schema keywords (`patternProperties`, complex `items`, etc.) that Google's API doesn't support. This causes `google tool schema has unsupported keywords` warnings and may break tool calls.
+2. **Shared Gemini embedding quota** — OpenClaw's memory system (qmd) uses Gemini for embeddings. Heavy usage can 429 the embedding quota, breaking memory search even when the completion model has capacity.
+
+**Workaround:** Until OpenClaw adds Google-compatible tool schema translation, AG models work best for simple conversations without heavy tool use. For tool-heavy sessions (the main agent), prefer keeping Anthropic profiles as primary and use AG as a last-resort fallback.
+
 ## 🚀 Installation
 
 ### Requirements
