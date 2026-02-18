@@ -15,8 +15,8 @@
      ╚██████╗███████╗██║  ██║╚███╔███╔╝
       ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
 
- 🦞 An OpenClaw Skill
- LLM Usage Monitor & Intelligent Load Balancer
+ 🦞 LLM subscription usage monitoring
+ and load balancing for OpenClaw.
 ```
 
 > **🦞 An [OpenClaw](https://github.com/openclaw/openclaw) skill that gives you a unified view of all your LLM subscriptions and optionally auto-balances routing to maximize every credit.**

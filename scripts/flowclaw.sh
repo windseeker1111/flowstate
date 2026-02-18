@@ -29,8 +29,8 @@ show_banner() {
      ╚██████╗███████╗██║  ██║╚███╔███╔╝
       ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
 
- 🦞 An OpenClaw Skill
- LLM Usage Monitor & Intelligent Load Balancer
+ 🦞 LLM subscription usage monitoring
+ and load balancing for OpenClaw.
 
 BANNER
 }
