@@ -1,6 +1,6 @@
 ---
 name: flowclaw
-description: "LLM load balancer for OpenClaw. Track usage across Anthropic, Google, OpenAI, and Ollama in one dashboard. Auto-balance routing to maximize every credit."
+description: "LLM subscription usage monitoring and load balancing for OpenClaw. Track usage across all your Anthropic, Google, OpenAI, and GitHub accounts in one dashboard. Optionally auto-balance routing to maximize every credit."
 metadata:
   openclaw:
     emoji: "🦞"
@@ -13,7 +13,7 @@ metadata:
         - python3
 ---
 
-# FlowClaw — LLM Load Balancer
+# FlowClaw — LLM Usage Monitor & Load Balancer
 
 > *Track usage. Balance routing. Never waste a credit.*
 
@@ -21,49 +21,60 @@ Unified dashboard + auto-routing for all your LLM subscriptions. Uses **Earliest
 
 ## Supported Providers
 
-| Provider | Auth | Scoring |
-|----------|------|---------|
-| **Anthropic** | Claude Max OAuth (unlimited accounts) | Subscription → use-it-or-lose-it |
-| **Google** | Gemini CLI (`npm i -g @google/gemini-cli`) | Free tier → highest priority |
-| **OpenAI** | API key (`OPENAI_API_KEY`) | Pay-per-token → always available |
-| **Ollama** | Local (auto-detected) | Free → quality tradeoff |
+| Provider | Auth | Data Source |
+|----------|------|------------|
+| **Anthropic Claude Max** | OAuth (unlimited accounts) | `api.anthropic.com/api/oauth/usage` |
+| **Google Gemini CLI** | OAuth via OpenClaw | `cloudcode-pa.googleapis.com` |
+| **Google Antigravity** | codexbar | codexbar usage API |
+| **OpenAI Codex** | OAuth via OpenClaw | `chatgpt.com/backend-api/wham/usage` |
+| **GitHub Copilot** | OAuth via OpenClaw | `api.github.com/copilot_internal/user` |
+| **Ollama** | Local (auto-detected) | `localhost:11434/api/tags` |
 
 ## Commands
 
 ```bash
-# Dashboard — all providers at a glance
-flowclaw status [--fresh] [--json]
+# 📊 Usage Monitoring
+flowclaw status [--fresh] [--json]     # Full provider dashboard
+flowclaw monitor [--json] [--cached]   # Clean usage report (no scoring)
 
-# Scored ranking — which account to use right now
-flowclaw score [--json]
+# 🧠 Load Balancing
+flowclaw score [--json]                # Scored ranking of all accounts
+flowclaw optimize [--dry-run]          # Reorder OpenClaw model priority
+flowclaw auto                          # Optimize silently (for cron jobs)
 
-# Optimize routing — reorder OpenClaw model priority
-flowclaw optimize [--dry-run]
-
-# Auto mode — optimize silently (for cron jobs)
-flowclaw auto
-
-# Run scoring engine unit tests
-flowclaw test
+# 🛠 Utilities
+flowclaw test                          # Run scoring engine unit tests
+flowclaw history [N]                   # Routing decision history
 ```
 
 ## Setup
 
-### Anthropic (Claude Max)
+### Anthropic (Claude Max) — unlimited accounts
 ```bash
 claude login
 bash {baseDir}/scripts/save-account.sh
+# Repeat for each account
 ```
 
-### Google (Gemini CLI)
+### Google Gemini CLI
 ```bash
-npm i -g @google/gemini-cli
-gemini    # login via browser
+openclaw models auth login --provider google-gemini-cli
 ```
 
-### OpenAI
+### Google Antigravity
 ```bash
-export OPENAI_API_KEY="sk-..."
+openclaw models auth login --provider google-antigravity
+brew install --cask steipete/tap/codexbar   # Required for usage metrics
+```
+
+### OpenAI Codex
+```bash
+openclaw models auth login --provider openai-codex
+```
+
+### GitHub Copilot
+```bash
+openclaw models auth login-github-copilot
 ```
 
 ### Ollama

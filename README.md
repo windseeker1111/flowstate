@@ -1,6 +1,6 @@
-# 🦞 FlowClaw — LLM Subscription Load Balancer for OpenClaw
+# 🦞 FlowClaw — LLM Usage Monitor & Load Balancer for OpenClaw
 
-> Never let your credits go to waste.
+> LLM subscription usage monitoring and load balancing for OpenClaw.
 
 ```
  ███████╗██╗      ██████╗ ██╗    ██╗
@@ -17,16 +17,18 @@
       ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
 ```
 
-An [OpenClaw](https://github.com/openclaw/openclaw) skill that gives you a unified view of all your LLM subscriptions and auto-balances routing to maximize every credit.
+An [OpenClaw](https://github.com/openclaw/openclaw) skill that gives you a unified view of all your LLM subscriptions and optionally auto-balances routing to maximize every credit.
 
 **Supported Providers:**
 
 | Provider | Auth Method | What You Get |
 |----------|------------|--------------|
-| **Anthropic** | Claude Max OAuth | Claude Opus, Sonnet |
-| **Google** | Gemini CLI | Claude (via Google), Gemini Pro, Gemini Flash |
-| **OpenAI** | API key | GPT-5.2, GPT-5-mini |
-| **Ollama** | Local | Any downloaded model |
+| **Anthropic Claude Max** | OAuth (unlimited accounts) | 5h session + 7d windows, Opus/Sonnet breakdown |
+| **Google Gemini CLI** | OAuth via OpenClaw | Pro + Flash quota (24h rolling) |
+| **Google Antigravity** | codexbar | Claude, Gemini Pro/Flash per-model (12h rolling) |
+| **OpenAI Codex** | OAuth via OpenClaw | 3h + daily windows, plan type, credits |
+| **GitHub Copilot** | OAuth via OpenClaw | Premium + Chat quota |
+| **Ollama** | Local (auto-detected) | Any downloaded model |
 
 ---
 
@@ -39,7 +41,9 @@ Flat-rate LLM subscriptions like Claude Max and Google Gemini CLI have **usage w
   ┌─────────────────────────────────────────────────────────┐
   │  Anthropic A   ████████████████████░░░░░  80% used      │  ← Resets in 30min!
   │  Anthropic B   ██░░░░░░░░░░░░░░░░░░░░░░  10% used      │  ← Resets in 11h
-  │  Google        ░░░░░░░░░░░░░░░░░░░░░░░░   0% used      │  ← Resets in 12h
+  │  Gemini CLI    ░░░░░░░░░░░░░░░░░░░░░░░░   0% used      │  ← Wide open
+  │  Antigravity   ████░░░░░░░░░░░░░░░░░░░░  40% used      │  ← Resets in 5h
+  │  Codex         ░░░░░░░░░░░░░░░░░░░░░░░░   0% used      │  ← Fresh
   │                                                         │
   │  You're using Account B... wasting 80% of Account A 💸  │
   └─────────────────────────────────────────────────────────┘
@@ -59,8 +63,9 @@ Flat-rate LLM subscriptions like Claude Max and Google Gemini CLI have **usage w
 
 ## ✨ Features
 
-- 🦞 **Unified dashboard** — See all Anthropic, Google, OpenAI, and Ollama accounts in one view
-- 📈 **Live usage bars** — Real-time usage with reset timers for every subscription window
+- 🦞 **6 providers** — Anthropic, Gemini CLI, Antigravity, OpenAI Codex, GitHub Copilot, Ollama
+- 📈 **Source API data** — Real usage from provider APIs, not calculated estimates
+- 👥 **Multi-account** — Unlimited Anthropic accounts, all others via OpenClaw
 - 🧠 **EDF scoring** — Earliest Deadline First algorithm scores accounts by urgency
 - 🔄 **Auto switching** — Reorders your OpenClaw model routing when better options are available
 - 🏠 **Local fallback** — Auto-detects Ollama as always-available fallback
@@ -90,25 +95,32 @@ $ flowclaw status --fresh
      ⏱️  5h Session:  🟢 ███░░░░░░░ 30%   ⏳4h 10m
      📅 7d Overall:   🟢 █░░░░░░░░░ 12%   ⏳5d 3h
 
-━━━ Google (Claude + Gemini) ━━━━━━━━━━━━━━━━━
+━━━ Google Gemini CLI ━━━━━━━━━━━━━━━━━━━━━━━
 
-  🌐 user@example.com — Pro
-     🤖 Claude:      🟢 ░░░░░░░░░░ 0%    ⏳11h 52m
-     ♊ Gemini Pro:   🟢 ░░░░░░░░░░ 0%    ⏳12h 56m
-     ⚡ Gemini Flash: 🟢 ░░░░░░░░░░ 0%    ⏳12h 56m
+  ♊
+     ♊ Pro                🟢 ░░░░░░░░░░ 0%
+     ⚡ Flash              🟢 ░░░░░░░░░░ 0%
 
-━━━ OpenAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ Google Antigravity ━━━━━━━━━━━━━━━━━━━━━━━
 
-  🤖 OpenAI API
-     📊 Today's tokens: 50K
-     🟢 Status: Active
+  🌐 (Antigravity)
+     🤖 claude-opus-4-6    🟢 ████░░░░░░ 40%  ⏳1h 27m
+     🤖 claude-sonnet-4-6  🟢 ████░░░░░░ 40%  ⏳1h 27m
+     ♊ gemini-3-pro-high  🟢 ░░░░░░░░░░ 0%   ⏳5h 0m
+     ⚡ gemini-3-flash     🟢 ░░░░░░░░░░ 0%   ⏳5h 0m
+
+━━━ OpenAI Codex ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  🤖 (Pro)
+     🤖 3h                 🟡 ██████░░░░ 60%  ⏳1h 15m
+     🤖 Day                🟢 ██░░░░░░░░ 20%  ⏳18h
 
 ━━━ Ollama (Local) ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   🖥️  qwen3:235b (60.1GB)  🟢 Always available
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📍 11:37 AM PST · Feb 18, 2026
+📍 02:02 PM PST · Feb 18, 2026
 ```
 
 ---
@@ -183,12 +195,14 @@ score = urgency × 0.4 + availability × 0.3 + proximity × 0.2 + tier_bonus × 
 
 ## 🏗️ Provider Details
 
-| Provider | Reset Windows | Free Tier | Notes |
-|----------|---------------|-----------|-------|
-| **Anthropic** | 5h session + 7d weekly | ❌ Subscription | Multiple Max accounts supported |
-| **Google** | 12h rolling | ✅ Free with Gemini CLI | Claude + Gemini Pro + Gemini Flash |
-| **OpenAI** | Pay-per-token | ❌ API billing | Always available if key is valid |
-| **Ollama** | Never | ✅ Free (local) | Quality tradeoff, always-on fallback |
+| Provider | Reset Windows | Data Source | Notes |
+|----------|---------------|-------------|-------|
+| **Anthropic Claude Max** | 5h session + 7d weekly | `api.anthropic.com/api/oauth/usage` | Unlimited accounts via FlowClaw tokens |
+| **Google Gemini CLI** | 24h rolling | `cloudcode-pa.googleapis.com` | Pro + Flash request quota |
+| **Google Antigravity** | 12h rolling | codexbar | Per-model: Claude, Gemini Pro, Flash |
+| **OpenAI Codex** | 3h + daily | `chatgpt.com/backend-api/wham/usage` | Plan type + credit balance |
+| **GitHub Copilot** | Monthly | `api.github.com/copilot_internal/user` | Premium + Chat quota |
+| **Ollama** | Never | `localhost:11434/api/tags` | Auto-detected, always available |
 
 ---
 
@@ -217,28 +231,38 @@ source ~/.zshrc
 
 ### Adding Providers
 
-**Anthropic (Claude Max):**
+**Anthropic (Claude Max)** — unlimited accounts:
 ```bash
-claude login
-bash ~/clawd/skills/flowclaw/scripts/save-account.sh
+claude login                                     # Sign in with each account
+bash ~/clawd/skills/flowclaw/scripts/save-account.sh  # Save token with label
+# Repeat for each Anthropic account
 ```
 
-**Google (Gemini CLI):**
+**Google Gemini CLI:**
 ```bash
-npm i -g @google/gemini-cli
-gemini    # authenticates via browser
+openclaw models auth login --provider google-gemini-cli
 ```
 
-**OpenAI:**
+**Google Antigravity:**
 ```bash
-export OPENAI_API_KEY="sk-..."
+openclaw models auth login --provider google-antigravity
+brew install --cask steipete/tap/codexbar         # Required for usage metrics
+```
+
+**OpenAI Codex:**
+```bash
+openclaw models auth login --provider openai-codex
+```
+
+**GitHub Copilot:**
+```bash
+openclaw models auth login-github-copilot
 ```
 
 **Ollama (Local):**
 ```bash
-brew install ollama
-ollama pull qwen3:235b    # or any model
-# FlowClaw auto-detects Ollama — no configuration needed
+brew install ollama && ollama pull qwen3:235b
+# Auto-detected — no configuration needed
 ```
 
 ---
@@ -247,7 +271,8 @@ ollama pull qwen3:235b    # or any model
 
 | Command | Description |
 |---------|-------------|
-| `flowclaw status [--fresh] [--json]` | Provider usage dashboard |
+| `flowclaw status [--fresh] [--json]` | Full provider usage dashboard |
+| `flowclaw monitor [--json] [--cached]` | Clean usage report (no scoring) |
 | `flowclaw score [--json]` | Scored ranking of all accounts |
 | `flowclaw optimize [--dry-run]` | Reorder OpenClaw routing |
 | `flowclaw auto` | Silent optimization (for cron) |
@@ -273,7 +298,7 @@ flowclaw/
 ├── LICENSE                      # MIT
 ├── scripts/
 │   ├── flowclaw.sh             # Main CLI
-│   ├── provider-usage.sh        # Usage collector (Anthropic, Google, OpenAI, Ollama)
+│   ├── provider-usage.sh        # Usage collector (Anthropic direct + OpenClaw for rest)
 │   ├── scoring-engine.py        # EDF urgency scoring algorithm
 │   └── save-account.sh          # Anthropic account setup helper
 └── config/                      # Auto-generated, gitignored
@@ -294,10 +319,10 @@ flowclaw/
 
 ## 🤝 Contributing
 
-PRs welcome! Adding a new provider requires:
+PRs welcome! Adding a new provider:
 
-1. A collector function in `provider-usage.sh` (query the API)
-2. A scoring function in `scoring-engine.py` (compute urgency)
+1. If OpenClaw already supports the provider, it's automatic — FlowClaw picks it up via `openclaw status --usage --json`
+2. For custom providers, add a collector in `provider-usage.sh` and scorer in `scoring-engine.py`
 
 The scoring engine is a pure function: usage JSON in → ranked recommendations out.
 
@@ -312,5 +337,5 @@ MIT — see [LICENSE](LICENSE)
 <p align="center">
   🦞<br>
   <i>A skill for <a href="https://github.com/openclaw/openclaw">OpenClaw</a></i><br>
-  <i>Maximize your subscriptions. Never waste a credit.</i>
+  <i>LLM subscription usage monitoring and load balancing.</i>
 </p>
