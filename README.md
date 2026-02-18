@@ -1,4 +1,5 @@
-# 🦞 FlowClaw — An OpenClaw Skill
+# 🦞 FlowClaw — Intelligent LLM Load Balancer for OpenClaw
+ Never let your credits go to waste.
 
 ```
  ███████╗██╗      ██████╗ ██╗    ██╗
