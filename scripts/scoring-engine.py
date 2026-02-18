@@ -192,6 +192,22 @@ def score_ollama(account: dict) -> list[ScoredAccount]:
         utilization=0, resets_in="never"
     )]
 
+def model_family(model: str) -> str:
+    """Classify a model into a capability family for fair comparison.
+    Only models in the same family should compete for the same routing slot."""
+    m = model.lower()
+    if "opus" in m or "claude-opus" in m:
+        return "opus"
+    elif "sonnet" in m or "claude-sonnet" in m:
+        return "sonnet"
+    elif "gemini-3-pro" in m or "gemini-pro" in m:
+        return "gemini-pro"
+    elif "gemini-3-flash" in m or "gemini-flash" in m:
+        return "gemini-flash"
+    elif "ollama" in m:
+        return "local"
+    return "other"
+
 def score_all(data: dict) -> list[ScoredAccount]:
     """Score all accounts from usage JSON."""
     scored = []
@@ -203,7 +219,19 @@ def score_all(data: dict) -> list[ScoredAccount]:
             scored.extend(score_antigravity(entry))
         elif provider == "ollama":
             scored.extend(score_ollama(entry))
+    # Tag each with family for downstream filtering
+    for s in scored:
+        s.family = model_family(s.model)
     return sorted(scored, key=lambda s: s.score, reverse=True)
+
+def best_per_family(scored: list[ScoredAccount]) -> dict[str, ScoredAccount]:
+    """Return the best available account for each model family."""
+    best = {}
+    for s in scored:
+        fam = model_family(s.model)
+        if fam not in best and s.available:
+            best[fam] = s
+    return best
 
 def run_tests():
     """Built-in unit tests."""
@@ -272,6 +300,7 @@ def main():
     output_format = "json" if "--json" in sys.argv else "text"
 
     if output_format == "json":
+        family_best = best_per_family(scored)
         result = {
             "ranked": [{
                 "rank": i + 1,
@@ -280,6 +309,7 @@ def main():
                 "email": s.email,
                 "profile_id": s.profile_id,
                 "model": s.model,
+                "family": model_family(s.model),
                 "score": s.score,
                 "available": s.available,
                 "reason": s.reason,
@@ -287,6 +317,7 @@ def main():
                 "resets_in": s.resets_in,
             } for i, s in enumerate(scored)],
             "recommended_primary": next((s.model for s in scored if s.available), None),
+            "recommended_per_family": {fam: s.model for fam, s in family_best.items()},
             "recommended_anthropic_order": [s.profile_id for s in scored if s.provider == "anthropic"],
         }
         print(json.dumps(result, indent=2))

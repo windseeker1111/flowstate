@@ -182,16 +182,54 @@ cmd_optimize() {
   local scored_json
   scored_json=$(echo "$usage_json" | scoring_engine --json)
 
-  # Extract recommendations
+  # Extract recommendations — FAMILY-AWARE routing
+  # Only recommend switching to a model in the same capability family as current primary
   local recommended_primary
-  recommended_primary=$(echo "$scored_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('recommended_primary','') or '')")
-
   local anthropic_order
-  anthropic_order=$(echo "$scored_json" | python3 -c "
-import json, sys
+  read -r recommended_primary anthropic_order < <(echo "$scored_json" | python3 -c "
+import json, sys, subprocess
+
 d = json.load(sys.stdin)
+
+# Get current primary model from openclaw config
+try:
+    import pathlib, os
+    cfg_path = pathlib.Path(os.path.expanduser('~/.openclaw/openclaw.json'))
+    if cfg_path.exists():
+        cfg = json.loads(cfg_path.read_text())
+        current_primary = cfg.get('agents', {}).get('defaults', {}).get('model', {}).get('primary', '')
+    else:
+        current_primary = ''
+except:
+    current_primary = ''
+
+# Determine current model family
+def get_family(model):
+    m = model.lower()
+    if 'opus' in m: return 'opus'
+    if 'sonnet' in m: return 'sonnet'
+    if 'gemini-3-pro' in m or 'gemini-pro' in m: return 'gemini-pro'
+    if 'gemini-3-flash' in m or 'gemini-flash' in m: return 'gemini-flash'
+    return 'other'
+
+current_family = get_family(current_primary) if current_primary else 'opus'
+
+# Find best available model in the SAME family
+ranked = d.get('ranked', [])
+best_same_family = None
+for r in ranked:
+    if r['available'] and get_family(r['model']) == current_family:
+        best_same_family = r['model']
+        break
+
+# Fallback: if no same-family available, use overall best
+if not best_same_family:
+    best_same_family = d.get('recommended_primary', '')
+
+# Anthropic order (unchanged)
 order = d.get('recommended_anthropic_order', [])
-print(' '.join(order))
+
+print(f\"{best_same_family or ''} {' '.join(order)}\")
 ")
 
   # Get ranked summary for display
