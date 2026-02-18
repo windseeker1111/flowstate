@@ -1,9 +1,9 @@
 ---
 name: flowclaw
-description: "Intelligent LLM load balancer. Maximizes the value of your existing LLM subscriptions by never letting credits go to waste. Scores all provider accounts and dynamically optimizes routing."
+description: "LLM subscription usage monitoring and load balancing for OpenClaw. Track usage across all your Anthropic, Antigravity, and local accounts in one dashboard. Optionally auto-balance routing to maximize every credit."
 metadata:
   openclaw:
-    emoji: "🧠"
+    emoji: "🦞"
     os:
       - darwin
       - linux
@@ -13,11 +13,11 @@ metadata:
         - python3
 ---
 
-# FlowClaw — Intelligent LLM Load Balancer
+# FlowClaw — LLM Usage Monitor & Load Balancer
 
-> *Maximize the value of your existing LLM subscriptions by never letting credits go to waste.*
+> *LLM subscription usage monitoring and load balancing for OpenClaw.*
 
-Scores all provider accounts and dynamically routes requests to the optimal account based on remaining quota, reset schedules, and cost.
+Track usage across all your LLM subscriptions in one dashboard. Optionally auto-balance routing to the account with the most urgent credits.
 
 Uses **Earliest Deadline First** scheduling + **perishable inventory** optimization — accounts resetting soonest are prioritized so unused credits aren't wasted.
 
@@ -32,7 +32,10 @@ Uses **Earliest Deadline First** scheduling + **perishable inventory** optimizat
 ## Commands
 
 ```bash
-# Usage dashboard — all providers at a glance
+# Usage monitoring — clean usage report across all providers
+flowclaw monitor [--json] [--cached]
+
+# Raw dashboard — all providers at a glance
 flowclaw status [--fresh] [--json]
 
 # Scored ranking — which account to use right now

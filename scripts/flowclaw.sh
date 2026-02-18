@@ -64,8 +64,7 @@ with open('$HISTORY_FILE', 'a') as f:
 # ── Commands ─────────────────────────────────────────────────────────
 
 cmd_status() {
-  local args=("$@")
-  bash "$SCRIPT_DIR/provider-usage.sh" "${args[@]}"
+  bash "$SCRIPT_DIR/provider-usage.sh" "$@"
 }
 
 cmd_monitor() {
