@@ -171,10 +171,11 @@ FlowClaw detects the best routing option, swaps your primary model, and reorgani
 
 ## 🔬 How the Scoring Algorithm Works
 
-Each account gets an **urgency score** from 0.0 to ~1.0:
+Each account gets an **urgency score** from 0.0 to ~1.5:
 
 ```
-score = urgency × 0.4 + availability × 0.3 + proximity × 0.2 + tier_bonus × 0.1
+score = urgency × 0.30 + availability × 0.25 + proximity × 0.15
+      + weekly_headroom × 0.20 + tier_bonus × 0.10
 ```
 
 | Factor | Formula | What it measures |
@@ -182,12 +183,18 @@ score = urgency × 0.4 + availability × 0.3 + proximity × 0.2 + tier_bonus × 
 | **Urgency** | `remaining / hours_to_reset` | Credits wasting per hour |
 | **Availability** | `√(remaining)` | Dampened remaining capacity |
 | **Proximity** | `1 - (hours_to_reset / window)` | How close to reset deadline |
+| **Weekly headroom** | `(100 - weekly_pct) / 100` | 7-day capacity remaining |
 | **Tier bonus** | Free=+0.8, Paid=0, Local=-0.3 | Provider cost preference |
 
-### Hard Rules
+### Perishable Inventory Rules
 
+Both 5h session and 7d weekly windows are treated as perishable inventory:
+
+- **Normal**: Account at 96% weekly → deprioritized (save remaining credits)
+- **≤12h to weekly reset**: Penalty fades linearly (credits becoming perishable)
+- **≤6h to weekly reset**: Full burn mode — weekly penalty ignored entirely
 - **100% utilized** on any window → score = 0 (blocked)
-- **Free cloud tiers** (Google) always preferred over paid subscriptions
+- **Free cloud tiers** (Google/Antigravity) always preferred over paid subscriptions
 - **Family-aware** — only swaps within same capability class (Opus↔Opus, Gemini↔Gemini)
 - **Local models** are always available, never score 0
 

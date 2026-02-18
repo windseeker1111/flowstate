@@ -92,7 +92,7 @@ brew install ollama && ollama pull qwen3:235b
 ## Scoring Algorithm
 
 ```
-score = urgency(0.4) + availability(0.3) + proximity(0.2) + tier_bonus(0.1)
+score = urgency(0.30) + availability(0.25) + proximity(0.15) + weekly_headroom(0.20) + tier(0.10)
 ```
 
 | Factor | Formula | Measures |
@@ -100,6 +100,7 @@ score = urgency(0.4) + availability(0.3) + proximity(0.2) + tier_bonus(0.1)
 | Urgency | `remaining / hours_to_reset` | Credits wasting per hour |
 | Availability | `√(remaining)` | Dampened capacity |
 | Proximity | `1 - (hours / window)` | Deadline pressure |
+| Weekly headroom | `(100 - weekly%) / 100` | 7-day capacity reserve |
 | Tier bonus | Free=+0.8, Sub=0, Local=-0.3 | Cost preference |
 
-**Family-aware:** Only swaps within same capability class (Opus↔Opus, not Opus↔Gemini).
+**Perishable inventory:** Both 5h session and 7d weekly windows expire. When ≤6h to weekly reset, penalty is removed — burn remaining credits. **Family-aware:** Only swaps within same capability class (Opus↔Opus, not Opus↔Gemini).

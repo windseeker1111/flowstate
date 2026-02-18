@@ -4,10 +4,16 @@
 Reads usage JSON from stdin (produced by usage collector), computes urgency
 scores for each account, and outputs a ranked list with recommended routing.
 
-Providers: Anthropic, Google (Gemini CLI), OpenAI, Ollama
+Providers: Anthropic, Google Gemini CLI, Google Antigravity, OpenAI Codex,
+           GitHub Copilot, Ollama
 
 Scoring based on Earliest Deadline First + perishable inventory management:
-  score = urgency * 0.4 + availability * 0.3 + proximity * 0.2 + tier_bonus * 0.1
+  score = urgency * 0.30 + availability * 0.25 + proximity * 0.15
+        + weekly_headroom * 0.20 + tier_bonus * 0.10
+
+The weekly_headroom factor ensures accounts near their weekly limit are
+deprioritized — prefer the account with more long-term capacity even if
+both have available session capacity.
 """
 
 import json
@@ -16,13 +22,23 @@ from dataclasses import dataclass, field
 
 # ── Provider tier bonuses (cost optimization) ─────────────────────────
 TIER_BONUS = {
-    "google": 0.8,        # Free tier (Gemini CLI), prefer strongly
-    "anthropic": 0.0,     # Subscription baseline
-    "openai": 0.0,        # API billing baseline
-    "ollama": -0.3,       # Quality penalty, but always available
+    "google": 0.8,             # Free tier (Gemini CLI / Antigravity), prefer strongly
+    "google-gemini-cli": 0.5,  # Paid Gemini CLI, still preferred
+    "google-antigravity": 0.8, # Free Antigravity tier
+    "anthropic": 0.0,          # Subscription baseline
+    "openai": 0.0,             # Codex subscription baseline
+    "github-copilot": 0.0,     # Copilot subscription baseline
+    "ollama": -0.3,            # Quality penalty, but always available
 }
 
 TIER_EXTRA_PENALTY = -1.0  # Heavy penalty when burning extra usage $$$
+
+# ── Scoring weights ───────────────────────────────────────────────────
+W_URGENCY = 0.30       # Credits wasting per hour (session-level)
+W_AVAILABILITY = 0.25  # Remaining capacity (dampened)
+W_PROXIMITY = 0.15     # How close to reset deadline
+W_WEEKLY = 0.20        # Long-term headroom (7d usage)
+W_TIER = 0.10          # Provider cost preference
 
 @dataclass
 class ScoredAccount:
@@ -111,31 +127,51 @@ def score_anthropic(account: dict) -> list[ScoredAccount]:
     s_pressure = s_util / max(s_reset_h, 0.01)
     w_pressure = w_util / max(w_reset_h, 0.01)
 
+    # Session urgency (5h window) — how fast are session credits expiring?
     if s_pressure > w_pressure:
-        util, remaining, reset_h = s_util, s_remaining, s_reset_h
+        remaining, reset_h = s_remaining, s_reset_h
         window_h = 5.0
         resets_in = session.get("resets_in", "?")
     else:
-        util, remaining, reset_h = w_util, w_remaining, w_reset_h
+        remaining, reset_h = w_remaining, w_reset_h
         window_h = 168.0
         resets_in = weekly.get("resets_in", "?")
 
     urgency = remaining / reset_h if reset_h > 0 else 0
     availability = remaining ** 0.5
     proximity = max(0, 1 - reset_h / window_h)
-    tier = TIER_BONUS.get("anthropic", 0)
 
+    # Weekly headroom — how much 7-day capacity remains?
+    # An account at 96% weekly should be heavily deprioritized vs 51%...
+    # UNLESS the weekly window is about to reset (≤12h) — then burn it!
+    weekly_headroom = w_remaining  # 1.0 = fresh, 0.0 = exhausted
+    if w_reset_h <= 6:
+        # About to reset — ignore weekly headroom entirely, burn away
+        weekly_headroom = 1.0
+    elif w_reset_h <= 12:
+        # Transitional zone: linearly reduce the penalty from 12h→6h
+        # At 12h: use actual headroom; at 6h: treat as fully fresh
+        blend = (w_reset_h - 6) / 6  # 1.0 at 12h, 0.0 at 6h
+        weekly_headroom = w_remaining * blend + 1.0 * (1 - blend)
+
+    tier = TIER_BONUS.get("anthropic", 0)
     if extra.get("enabled") and extra.get("utilization", 0) >= 100:
         tier += TIER_EXTRA_PENALTY * 0.3
 
-    score = (urgency * 0.4) + (availability * 0.3) + (proximity * 0.2) + (tier * 0.1)
+    score = (
+        urgency * W_URGENCY +
+        availability * W_AVAILABILITY +
+        proximity * W_PROXIMITY +
+        weekly_headroom * W_WEEKLY +
+        tier * W_TIER
+    )
 
     return [ScoredAccount(
         provider="anthropic", account=name, email=email,
         profile_id=profile_id, model=model,
         score=round(score, 4), available=True,
         reason=f"5h:{s_util}% 7d:{w_util}%",
-        utilization=util, resets_in=resets_in
+        utilization=max(s_util, w_util), resets_in=resets_in
     )]
 
 
@@ -175,9 +211,16 @@ def score_google(account: dict) -> list[ScoredAccount]:
         urgency = remaining / reset_h if reset_h > 0 else 0
         availability = remaining ** 0.5
         proximity = max(0, 1 - reset_h / 12.0)
-        tier = TIER_BONUS.get("google", 0)
+        weekly_headroom = remaining  # single-window provider
+        tier = TIER_BONUS.get("google", TIER_BONUS.get(provider_prefix, 0))
 
-        score = (urgency * 0.4) + (availability * 0.3) + (proximity * 0.2) + (tier * 0.1)
+        score = (
+            urgency * W_URGENCY +
+            availability * W_AVAILABILITY +
+            proximity * W_PROXIMITY +
+            weekly_headroom * W_WEEKLY +
+            tier * W_TIER
+        )
 
         results.append(ScoredAccount(
             provider="google", account=f"google-{key}", email=email,
@@ -209,7 +252,7 @@ def score_openai(account: dict) -> list[ScoredAccount]:
     # OpenAI is pay-per-token — always available if key works
     # Lower tier bonus than free Google, but no rate limits
     tier = TIER_BONUS.get("openai", 0)
-    score = (0.5 * 0.4) + (1.0 * 0.3) + (0.0 * 0.2) + (tier * 0.1)
+    score = (0.5 * W_URGENCY) + (1.0 * W_AVAILABILITY) + (0.0 * W_PROXIMITY) + (1.0 * W_WEEKLY) + (tier * W_TIER)
     
     return [ScoredAccount(
         provider="openai", account="openai-api", email="api",
@@ -225,7 +268,7 @@ def score_ollama(account: dict) -> list[ScoredAccount]:
     model = account.get("model", "unknown")
     size = account.get("size", "?")
     tier = TIER_BONUS.get("ollama", -0.3)
-    score = (0.0 * 0.4) + (1.0 * 0.3) + (0.0 * 0.2) + (tier * 0.1)
+    score = (0.0 * W_URGENCY) + (1.0 * W_AVAILABILITY) + (0.0 * W_PROXIMITY) + (1.0 * W_WEEKLY) + (tier * W_TIER)
     return [ScoredAccount(
         provider="ollama", account=f"local-{model}", email="localhost",
         profile_id=f"ollama:{model}", model=f"ollama/{model}",
