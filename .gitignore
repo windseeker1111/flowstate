@@ -1,0 +1,25 @@
+# State files
+config/flowstate-state.json
+
+# Cache
+*.cache
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Never commit credentials
+*.json.bak
