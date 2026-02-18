@@ -15,13 +15,17 @@
      ╚██████╗███████╗██║  ██║╚███╔███╔╝
       ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
 
- 🦞 An OpenClaw Skill · Intelligent LLM Load Balancer
- Never let your credits go to waste.
+ 🦞 An OpenClaw Skill
+ LLM Usage Monitor & Intelligent Load Balancer
 ```
 
-> **🦞 An [OpenClaw](https://github.com/openclaw/openclaw) skill that maximizes the value of your existing LLM subscriptions by never letting credits go to waste.**
+> **🦞 An [OpenClaw](https://github.com/openclaw/openclaw) skill that gives you a unified view of all your LLM subscriptions and optionally auto-balances routing to maximize every credit.**
 
-FlowClaw is an intelligent load balancer for [OpenClaw](https://github.com/openclaw/openclaw). It uses **Earliest Deadline First** scheduling and **perishable inventory** optimization to dynamically reorder your OpenClaw model routing, ensuring the account with the most urgent credits is always used first.
+FlowClaw does two things:
+1. **📊 Usage Monitoring** — See usage across all your Anthropic, Google Antigravity, and local accounts in one dashboard
+2. **🧠 Auto Load Balancing** — Automatically route to the account with the most urgent credits using EDF scheduling
+
+Use either feature independently, or both together.
 
 ---
 
@@ -54,13 +58,20 @@ Flat-rate LLM subscriptions like Claude Max and Google Antigravity have **usage 
 
 ## ✨ Features
 
-- 🦞 **Built for OpenClaw** — Directly manages your OpenClaw model routing and profile ordering
+**📊 Monitoring:**
+- 🦞 **Unified dashboard** — See all your Anthropic, Antigravity, and local accounts in one view
+- 📈 **Usage tracking** — Live usage bars with reset timers for every subscription window
+- 💾 **JSON export** — `flowclaw monitor --json` for scripting and integrations
+
+**🧠 Load Balancing:**
 - 🧠 **Smart scoring** — EDF urgency algorithm scores accounts by remaining credits, reset proximity, and provider tier
 - 🔄 **Automatic switching** — Reorders your OpenClaw model routing when better options are available
-- 📊 **Unified dashboard** — See all providers at a glance with live usage bars
-- 📈 **Routing history** — Graph of every switchover with provider distribution charts
-- 🏠 **Local fallback** — Auto-detects Ollama models as always-available fallback
+- 📈 **Routing history** — Timeline graph of every switchover with provider distribution charts
 - ⏱️ **Cron-ready** — `flowclaw auto` runs silently for hands-free optimization
+
+**Both:**
+- 🏠 **Local fallback** — Auto-detects Ollama models as always-available fallback
+- 🦞 **Built for OpenClaw** — Directly manages your OpenClaw model routing and profile ordering
 
 ---
 
@@ -300,13 +311,23 @@ FlowClaw auto-detects Ollama when it's running — no configuration needed.
 
 ## 📋 All Commands
 
+### 📊 Usage Monitoring
 | Command | Description |
 |---------|-------------|
-| `flowclaw status [--fresh] [--json]` | Usage dashboard across all providers |
+| `flowclaw monitor [--json] [--cached]` | Clean usage report across all providers |
+| `flowclaw status [--fresh] [--json]` | Raw provider usage dashboard |
+
+### 🧠 Load Balancing
+| Command | Description |
+|---------|-------------|
 | `flowclaw score [--json]` | Scored ranking of all accounts |
 | `flowclaw optimize [--dry-run]` | Reorder OpenClaw routing for optimal usage |
 | `flowclaw auto` | Silent optimization (for cron) |
 | `flowclaw history [N]` | Routing history with switchover graph |
+
+### 🛠 Utilities
+| Command | Description |
+|---------|-------------|
 | `flowclaw test` | Run scoring engine unit tests |
 | `flowclaw help` | Show help with ASCII banner |
 

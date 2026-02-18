@@ -1,7 +1,7 @@
 #!/bin/bash
-# FlowClaw — Intelligent LLM Load Balancer
-# Maximize the value of your existing LLM subscriptions
-# by never letting credits go to waste.
+# FlowClaw — LLM Usage Monitor & Intelligent Load Balancer
+# Track usage across all your LLM subscriptions in one place,
+# and optionally auto-balance routing to maximize every credit.
 
 set -euo pipefail
 
@@ -29,8 +29,8 @@ show_banner() {
      ╚██████╗███████╗██║  ██║╚███╔███╔╝
       ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
 
- 🦞 An OpenClaw Skill · Intelligent LLM Load Balancer
- Never let your credits go to waste.
+ 🦞 An OpenClaw Skill
+ LLM Usage Monitor & Intelligent Load Balancer
 
 BANNER
 }
@@ -66,6 +66,89 @@ with open('$HISTORY_FILE', 'a') as f:
 cmd_status() {
   local args=("$@")
   bash "$SCRIPT_DIR/provider-usage.sh" "${args[@]}"
+}
+
+cmd_monitor() {
+  local format_flag=""
+  local fresh_flag="--fresh"
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --json) format_flag="--json"; shift ;;
+      --cached) fresh_flag=""; shift ;;
+      *) shift ;;
+    esac
+  done
+
+  # Collect usage data
+  local usage_json
+  usage_json=$(bash "$SCRIPT_DIR/provider-usage.sh" --json $fresh_flag 2>/dev/null)
+
+  if [ -z "$usage_json" ] || [ "$usage_json" = "{}" ]; then
+    echo "❌ No usage data available. Check provider configuration."
+    exit 1
+  fi
+
+  if [ -n "$format_flag" ]; then
+    echo "$usage_json"
+    return
+  fi
+
+  # Human-readable usage report (no scoring, no routing recommendations)
+  echo "📊 FlowClaw Usage Report"
+  echo ""
+
+  python3 - "$usage_json" <<'PYEOF'
+import json, sys
+from datetime import datetime, timezone
+
+data = json.loads(sys.argv[1])
+
+for provider_name, provider in data.items():
+    if provider_name == "_meta":
+        continue
+    print(f"  ━━━ {provider.get('display_name', provider_name)} ━━━")
+    print()
+
+    accounts = provider.get("accounts", [])
+    if not accounts:
+        accounts = [provider]  # single-account provider
+
+    for acct in accounts:
+        name = acct.get("display_name", acct.get("email", acct.get("id", "unknown")))
+        print(f"  👤 {name}")
+
+        windows = acct.get("windows", [])
+        for w in windows:
+            label = w.get("label", w.get("type", "??"))
+            pct = w.get("usage_pct", 0)
+            remaining = w.get("remaining_str", "")
+
+            bar_width = 10
+            filled = int(pct / 100 * bar_width)
+            bar = "█" * filled + "░" * (bar_width - filled)
+
+            if pct >= 90:
+                color = "🔴"
+            elif pct >= 60:
+                color = "🟡"
+            else:
+                color = "🟢"
+
+            line = f"     {label:15s} {color} {bar} {pct:3.0f}%"
+            if remaining:
+                line += f"  ⏳{remaining}"
+            print(line)
+
+        extra = acct.get("extra_usage", {})
+        if extra:
+            spent = extra.get("spent", 0)
+            limit = extra.get("limit", 0)
+            if spent > 0 or limit > 0:
+                print(f"     💰 Extra usage:    ${spent:.2f}/${limit:.2f}")
+        print()
+
+print(f"  📍 {datetime.now().strftime('%I:%M %p %Z')} · {datetime.now().strftime('%b %d, %Y')}")
+PYEOF
 }
 
 cmd_score() {
@@ -329,6 +412,7 @@ PYEOF
 
 case "${1:-help}" in
   status)   shift; cmd_status "$@" ;;
+  monitor)  shift; cmd_monitor "$@" ;;
   score)    shift; cmd_score "$@" ;;
   optimize) shift; cmd_optimize "$@" ;;
   auto)     shift; cmd_auto "$@" ;;
@@ -340,21 +424,30 @@ case "${1:-help}" in
     cat <<'EOF'
 Usage: flowclaw <command> [options]
 
-Commands:
-  status [--fresh] [--json]        Show usage dashboard across all providers
-  score [--json]                   Show scored ranking of all accounts
+📊 Usage Monitoring:
+  status [--fresh] [--json]        Raw usage dashboard from all providers
+  monitor [--json] [--cached]      Clean usage report (no scoring/routing)
+
+🧠 Load Balancing:
+  score [--json]                   Scored ranking of all accounts
   optimize [--dry-run] [--verbose] Reorder OpenClaw routing for optimal usage
   auto                             Run optimize silently (for cron jobs)
-  history [N]                      Show routing history & switchover graph
+  history [N]                      Routing history & switchover graph
+
+🛠  Utilities:
   test                             Run scoring engine unit tests
+  help                             Show this help message
 
 Options:
   --fresh          Bypass cache, query APIs directly
-  --json           Output as JSON
+  --json           Output as JSON (for piping/scripting)
+  --cached         Use cached data (monitor only)
   --dry-run        Show proposed changes without applying
 
 Examples:
-  flowclaw status --fresh          # Live usage dashboard
+  flowclaw monitor                 # Quick usage check across all providers
+  flowclaw monitor --json          # Usage data as JSON for scripting
+  flowclaw status --fresh          # Full provider dashboard
   flowclaw score                   # See which account FlowClaw recommends
   flowclaw optimize --dry-run      # Preview routing changes
   flowclaw optimize                # Apply optimal routing
