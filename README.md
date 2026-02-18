@@ -263,25 +263,18 @@ score = urgency × 0.4  +  availability × 0.3  +  proximity × 0.2  +  tier_bon
 
 ## ⚠️ Known Issues
 
-### Google Antigravity Fallback — Currently Broken in OpenClaw
-As of OpenClaw `2026.2.17`, routing to `google-antigravity/*` models **breaks the agent session**. FlowClaw includes a scoring penalty and hard guard to prevent routing there until these upstream issues are resolved.
+### OpenClaw Google Provider — Schema Sanitization Required
+OpenClaw's `google-antigravity` provider requires a one-line patch to sanitize tool schemas. Without it, completions hang indefinitely. The `google-gemini-cli` provider works out of the box.
 
-**Root causes (all upstream OpenClaw bugs):**
+**Patch** (apply to `pi-embedded-*.js` in OpenClaw's dist):
+```js
+// BEFORE:
+if (params.provider !== "google-gemini-cli") return params.tools;
+// AFTER:
+if (params.provider !== "google-gemini-cli" && params.provider !== "google-antigravity") return params.tools;
+```
 
-| Issue | Impact | OpenClaw Issue |
-|-------|--------|---------------|
-| Completion hangs indefinitely | Agent goes silent for 30-60+ min, no timeout | [#9300](https://github.com/openclaw/openclaw/issues/9300) |
-| Unsigned thinking blocks rejected | Multi-turn tool conversations crash | [#13826](https://github.com/openclaw/openclaw/issues/13826) |
-| No working Opus-tier model via AG | Fallback degrades model quality | [#10716](https://github.com/openclaw/openclaw/issues/10716) |
-| Empty tool args stripped | Session corruption | [#1719](https://github.com/openclaw/openclaw/issues/1719) |
-| Tool schema incompatibility | `unsupported keywords` warnings | Not filed (cosmetic) |
-
-**FlowClaw's defense layers:**
-1. `-0.5` scoring penalty drops AG below any available Anthropic profile
-2. Family-aware routing prevents cross-family model swaps (Opus→Gemini)
-3. Hard guard in `optimize` blocks AG switch while Anthropic profiles are available
-
-**To re-enable AG:** When OpenClaw fixes the above issues, remove the `TOOL_COMPAT_PENALTY` in `scoring-engine.py` and the hard guard in `flowclaw.sh`. Test with a simple conversation first before enabling for tool-heavy sessions.
+**Recommendation:** Use `google-gemini-cli` auth (Gemini CLI) instead of Antigravity for cleanest experience. Both access the same Google quota.
 
 ## 🚀 Installation
 

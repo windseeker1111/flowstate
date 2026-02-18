@@ -1,8 +1,10 @@
 #!/bin/bash
-# Unified Provider Usage Dashboard
+# FlowClaw — Unified Provider Usage Dashboard
 # Queries all configured LLM providers for real-time usage data:
 #   - Anthropic Claude Max (via OAuth API)
-#   - Google Antigravity (via CodexBar CLI)
+#   - Google Gemini CLI (via gemini CLI credentials)
+#   - OpenAI (via API key usage endpoint)
+#   - Ollama (local models, always available)
 
 set -euo pipefail
 
@@ -12,15 +14,17 @@ TOKEN_DIR="${TOKEN_DIR:-$HOME/.openclaw/usage-tokens}"
 CACHE_FILE="/tmp/provider-usage-cache"
 CACHE_TTL=60
 SHOW_ANTHROPIC=1
-SHOW_ANTIGRAVITY=1
+SHOW_GOOGLE=1
+SHOW_OPENAI=1
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     --json) FORMAT="json"; shift ;;
     --fresh|--force) FORCE_REFRESH=1; shift ;;
     --cache-ttl) CACHE_TTL="$2"; shift 2 ;;
-    --anthropic-only) SHOW_ANTIGRAVITY=0; shift ;;
-    --antigravity-only) SHOW_ANTHROPIC=0; shift ;;
+    --anthropic-only) SHOW_GOOGLE=0; SHOW_OPENAI=0; shift ;;
+    --google-only) SHOW_ANTHROPIC=0; SHOW_OPENAI=0; shift ;;
+    --openai-only) SHOW_ANTHROPIC=0; SHOW_GOOGLE=0; shift ;;
     -h|--help)
       cat <<'EOF'
 Usage: provider-usage.sh [OPTIONS]
@@ -32,7 +36,8 @@ Options:
   --json                 JSON output
   --cache-ttl SEC        Cache TTL (default: 60)
   --anthropic-only       Show only Anthropic accounts
-  --antigravity-only     Show only Antigravity
+  --google-only          Show only Google accounts
+  --openai-only          Show only OpenAI accounts
   -h, --help             Show this help
 EOF
       exit 0 ;;
@@ -117,7 +122,6 @@ if [ "$SHOW_ANTHROPIC" -eq 1 ] && [ -d "$TOKEN_DIR" ]; then
         continue
       fi
 
-      # Parse all fields
       PARSED=$(python3 << PYEOF
 import json
 d = json.loads('''$RESP''')
@@ -126,7 +130,6 @@ sd = d.get('seven_day') or {}
 sn = d.get('seven_day_sonnet') or {}
 op = d.get('seven_day_opus') or {}
 ex = d.get('extra_usage') or {}
-cw = d.get('seven_day_cowork') or {}
 print(fh.get('utilization', 0))
 print(fh.get('resets_at', ''))
 print(sd.get('utilization', 0))
@@ -139,7 +142,6 @@ print(ex.get('is_enabled', False))
 print(ex.get('utilization', 0))
 print(ex.get('used_credits', 0))
 print(ex.get('monthly_limit', 0))
-print(cw.get('utilization', 0))
 PYEOF
       )
 
@@ -148,16 +150,12 @@ PYEOF
       WEEKLY_PCT=$(echo "$PARSED" | sed -n '3p')
       WEEKLY_RESET=$(echo "$PARSED" | sed -n '4p')
       SONNET_PCT=$(echo "$PARSED" | sed -n '5p')
-      SONNET_RESET=$(echo "$PARSED" | sed -n '6p')
       OPUS_PCT=$(echo "$PARSED" | sed -n '7p')
-      OPUS_RESET=$(echo "$PARSED" | sed -n '8p')
       EXTRA_ENABLED=$(echo "$PARSED" | sed -n '9p')
       EXTRA_PCT=$(echo "$PARSED" | sed -n '10p')
       EXTRA_USED=$(echo "$PARSED" | sed -n '11p')
       EXTRA_LIMIT=$(echo "$PARSED" | sed -n '12p')
-      COWORK_PCT=$(echo "$PARSED" | sed -n '13p')
 
-      # Convert reset timestamps to human-readable
       parse_reset() {
         local reset_ts="$1"
         if [ -z "$reset_ts" ] || [ "$reset_ts" = "None" ] || [ "$reset_ts" = "" ]; then
@@ -201,15 +199,19 @@ PYEOF
   fi
 fi
 
-# ── Google Antigravity ───────────────────────────────────────────────
+# ── Google (Gemini CLI + Antigravity) ────────────────────────────────
 
-if [ "$SHOW_ANTIGRAVITY" -eq 1 ] && command -v codexbar >/dev/null 2>&1; then
-  AG_JSON=$(codexbar usage --json 2>/dev/null || echo "[]")
+if [ "$SHOW_GOOGLE" -eq 1 ]; then
+  GOOGLE_FOUND=0
 
-  if [ "$AG_JSON" != "[]" ] && [ -n "$AG_JSON" ]; then
-    TEXT_OUTPUT+="━━━ Google Antigravity ━━━━━━━━━━━━━━━━━━━━━━\n\n"
+  # Method 1: Antigravity (codexbar CLI)
+  if command -v codexbar >/dev/null 2>&1; then
+    AG_JSON=$(codexbar usage --json 2>/dev/null || echo "[]")
+    if [ "$AG_JSON" != "[]" ] && [ -n "$AG_JSON" ]; then
+      [ "$GOOGLE_FOUND" -eq 0 ] && TEXT_OUTPUT+="━━━ Google (Claude + Gemini) ━━━━━━━━━━━━━━━━━\n\n"
+      GOOGLE_FOUND=1
 
-    AG_PARSED=$(python3 << PYEOF
+      AG_PARSED=$(python3 << PYEOF
 import json
 data = json.loads('''$AG_JSON''')
 for entry in data:
@@ -220,43 +222,122 @@ for entry in data:
     primary = u.get('primary', {})
     secondary = u.get('secondary', {})
     tertiary = u.get('tertiary', {})
-    
     p_pct = primary.get('usedPercent', 0)
     p_reset = primary.get('resetsAt', '')
     s_pct = secondary.get('usedPercent', 0)
     s_reset = secondary.get('resetsAt', '')
     t_pct = tertiary.get('usedPercent', 0)
     t_reset = tertiary.get('resetsAt', '')
-    
     print(f"{email}|{plan}|{p_pct}|{p_reset}|{s_pct}|{s_reset}|{t_pct}|{t_reset}")
 PYEOF
-    )
+      )
 
-    while IFS='|' read -r AG_EMAIL AG_PLAN AG_P_PCT AG_P_RESET AG_S_PCT AG_S_RESET AG_T_PCT AG_T_RESET; do
-      AG_P_LEFT="—"; AG_S_LEFT="—"; AG_T_LEFT="—"
-      if [ -n "$AG_P_RESET" ]; then
-        AG_P_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${AG_P_RESET%Z}" +%s 2>/dev/null || echo 0)
-        [ "$AG_P_TS" -gt 0 ] && AG_P_LEFT=$(secs_to_human $((AG_P_TS - NOW)))
+      while IFS='|' read -r AG_EMAIL AG_PLAN AG_P_PCT AG_P_RESET AG_S_PCT AG_S_RESET AG_T_PCT AG_T_RESET; do
+        AG_P_LEFT="—"; AG_S_LEFT="—"; AG_T_LEFT="—"
+        if [ -n "$AG_P_RESET" ]; then
+          AG_P_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${AG_P_RESET%Z}" +%s 2>/dev/null || echo 0)
+          [ "$AG_P_TS" -gt 0 ] && AG_P_LEFT=$(secs_to_human $((AG_P_TS - NOW)))
+        fi
+        if [ -n "$AG_S_RESET" ]; then
+          AG_S_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${AG_S_RESET%Z}" +%s 2>/dev/null || echo 0)
+          [ "$AG_S_TS" -gt 0 ] && AG_S_LEFT=$(secs_to_human $((AG_S_TS - NOW)))
+        fi
+        if [ -n "$AG_T_RESET" ]; then
+          AG_T_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${AG_T_RESET%Z}" +%s 2>/dev/null || echo 0)
+          [ "$AG_T_TS" -gt 0 ] && AG_T_LEFT=$(secs_to_human $((AG_T_TS - NOW)))
+        fi
+
+        USED_P=${AG_P_PCT%.*}; USED_S=${AG_S_PCT%.*}; USED_T=${AG_T_PCT%.*}
+
+        TEXT_OUTPUT+="  🌐 $AG_EMAIL — Google ($AG_PLAN)\n"
+        TEXT_OUTPUT+="     🤖 Claude:      $(dot $USED_P) $(bar $USED_P) ${USED_P}%  ⏳${AG_P_LEFT}\n"
+        TEXT_OUTPUT+="     ♊ Gemini Pro:   $(dot $USED_S) $(bar $USED_S) ${USED_S}%  ⏳${AG_S_LEFT}\n"
+        TEXT_OUTPUT+="     ⚡ Gemini Flash: $(dot $USED_T) $(bar $USED_T) ${USED_T}%  ⏳${AG_T_LEFT}\n"
+        TEXT_OUTPUT+="\n"
+
+        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"antigravity\",\"email\":\"$AG_EMAIL\",\"plan\":\"$AG_PLAN\",\"claude\":{\"used_pct\":$USED_P,\"resets_in\":\"$AG_P_LEFT\"},\"gemini_pro\":{\"used_pct\":$USED_S,\"resets_in\":\"$AG_S_LEFT\"},\"gemini_flash\":{\"used_pct\":$USED_T,\"resets_in\":\"$AG_T_LEFT\"}}"
+      done <<< "$AG_PARSED"
+    fi
+  fi
+
+  # Method 2: Gemini CLI (if authenticated)
+  if command -v gemini >/dev/null 2>&1; then
+    # Gemini CLI shares the same Google account quota as Antigravity
+    # Only show if we didn't already find usage via Antigravity
+    if [ "$GOOGLE_FOUND" -eq 0 ]; then
+      # Test if gemini CLI is authenticated by running a minimal check
+      GEMINI_TEST=$(timeout 5 gemini -p "Say OK" --model gemini-2.0-flash 2>/dev/null || echo "")
+      if [ -n "$GEMINI_TEST" ]; then
+        TEXT_OUTPUT+="━━━ Google (Gemini CLI) ━━━━━━━━━━━━━━━━━━━━━\n\n"
+        TEXT_OUTPUT+="  🌐 Gemini CLI authenticated\n"
+        TEXT_OUTPUT+="     ♊ Available models: gemini-3-pro, gemini-3-flash, claude-opus-4-6\n"
+        TEXT_OUTPUT+="     ℹ️  Usage quotas shared with Google account\n"
+        TEXT_OUTPUT+="     ⚠️  Install Antigravity app for detailed usage metrics\n\n"
+        GOOGLE_FOUND=1
+        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"google\",\"source\":\"gemini-cli\",\"authenticated\":true,\"note\":\"Install Antigravity for detailed metrics\"}"
       fi
-      if [ -n "$AG_S_RESET" ]; then
-        AG_S_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${AG_S_RESET%Z}" +%s 2>/dev/null || echo 0)
-        [ "$AG_S_TS" -gt 0 ] && AG_S_LEFT=$(secs_to_human $((AG_S_TS - NOW)))
+    fi
+  fi
+fi
+
+# ── OpenAI ───────────────────────────────────────────────────────────
+
+if [ "$SHOW_OPENAI" -eq 1 ]; then
+  OPENAI_KEY="${OPENAI_API_KEY:-}"
+  
+  # Check OpenClaw auth profiles for OpenAI
+  if [ -z "$OPENAI_KEY" ]; then
+    OPENAI_KEY=$(python3 -c "
+import json, pathlib, os
+p = pathlib.Path(os.path.expanduser('~/.openclaw/agents/main/agent/auth-profiles.json'))
+if p.exists():
+    d = json.loads(p.read_text())
+    profiles = d.get('profiles', d) if isinstance(d, dict) else {}
+    for k, v in profiles.items():
+        if isinstance(v, dict) and v.get('provider') == 'openai':
+            print(v.get('apiKey', v.get('token', '')))
+            break
+" 2>/dev/null || echo "")
+  fi
+
+  if [ -n "$OPENAI_KEY" ]; then
+    # Query OpenAI usage (billing/usage endpoint)
+    OPENAI_RESP=$(curl -s --max-time 10 "https://api.openai.com/v1/organization/usage?date=$(date -u +%Y-%m-%d)" \
+      -H "Authorization: Bearer $OPENAI_KEY" 2>/dev/null || echo "")
+
+    if echo "$OPENAI_RESP" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+      TEXT_OUTPUT+="━━━ OpenAI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+      
+      OAI_PARSED=$(python3 << PYEOF
+import json
+try:
+    d = json.loads('''$OPENAI_RESP''')
+    # OpenAI usage structure varies by plan type
+    # For API users: show spend; for ChatGPT Pro: show rate limits
+    if 'data' in d:
+        total = sum(b.get('results', [{}])[0].get('input_tokens', 0) + b.get('results', [{}])[0].get('output_tokens', 0) for b in d.get('data', []))
+        print(f"api|{total}|active")
+    elif 'error' in d:
+        print(f"error|{d['error'].get('message', 'Unknown')}|")
+    else:
+        print(f"unknown||")
+except:
+    print("error|parse_failed|")
+PYEOF
+      )
+
+      IFS='|' read -r OAI_TYPE OAI_TOKENS OAI_STATUS <<< "$OAI_PARSED"
+      if [ "$OAI_TYPE" = "api" ]; then
+        TOKEN_K=$((OAI_TOKENS / 1000))
+        TEXT_OUTPUT+="  🤖 OpenAI API\n"
+        TEXT_OUTPUT+="     📊 Today's tokens: ${TOKEN_K}K\n"
+        TEXT_OUTPUT+="     🟢 Status: Active\n\n"
+        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"openai\",\"source\":\"api\",\"today_tokens\":$OAI_TOKENS,\"available\":true}"
+      elif [ "$OAI_TYPE" = "error" ]; then
+        TEXT_OUTPUT+="  ⚠️  OpenAI: $OAI_TOKENS\n\n"
+        JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"openai\",\"source\":\"api\",\"error\":\"$OAI_TOKENS\"}"
       fi
-      if [ -n "$AG_T_RESET" ]; then
-        AG_T_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${AG_T_RESET%Z}" +%s 2>/dev/null || echo 0)
-        [ "$AG_T_TS" -gt 0 ] && AG_T_LEFT=$(secs_to_human $((AG_T_TS - NOW)))
-      fi
-
-      USED_P=${AG_P_PCT%.*}; USED_S=${AG_S_PCT%.*}; USED_T=${AG_T_PCT%.*}
-
-      TEXT_OUTPUT+="  🌐 $AG_EMAIL — $AG_PLAN\n"
-      TEXT_OUTPUT+="     🤖 Claude:      $(dot $USED_P) $(bar $USED_P) ${USED_P}%  ⏳${AG_P_LEFT}\n"
-      TEXT_OUTPUT+="     ♊ Gemini Pro:   $(dot $USED_S) $(bar $USED_S) ${USED_S}%  ⏳${AG_S_LEFT}\n"
-      TEXT_OUTPUT+="     ⚡ Gemini Flash: $(dot $USED_T) $(bar $USED_T) ${USED_T}%  ⏳${AG_T_LEFT}\n"
-      TEXT_OUTPUT+="\n"
-
-      JSON_SECTIONS+="${JSON_SECTIONS:+,}{\"provider\":\"antigravity\",\"email\":\"$AG_EMAIL\",\"plan\":\"$AG_PLAN\",\"claude\":{\"used_pct\":$USED_P,\"resets_in\":\"$AG_P_LEFT\"},\"gemini_pro\":{\"used_pct\":$USED_S,\"resets_in\":\"$AG_S_LEFT\"},\"gemini_flash\":{\"used_pct\":$USED_T,\"resets_in\":\"$AG_T_LEFT\"}}"
-    done <<< "$AG_PARSED"
+    fi
   fi
 fi
 
@@ -294,7 +375,7 @@ fi
 if [ "$FORMAT" = "json" ]; then
   OUTPUT="{\"providers\":[$JSON_SECTIONS],\"checked_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
 else
-  OUTPUT="🦞 LLM Provider Usage Dashboard\n\n${TEXT_OUTPUT}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📍 $(date '+%I:%M %p %Z') · $(date '+%b %d, %Y')"
+  OUTPUT="🦞 FlowClaw — LLM Provider Dashboard\n\n${TEXT_OUTPUT}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📍 $(date '+%I:%M %p %Z') · $(date '+%b %d, %Y')"
 fi
 
 echo -e "$OUTPUT" > "$CACHE_FILE"
