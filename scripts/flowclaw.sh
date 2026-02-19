@@ -326,6 +326,15 @@ PYEOF
   # Log to history
   log_history "$recommended_primary" "optimize" "scored_switch"
 
+  # Restart gateway to pick up config changes
+  echo ""
+  echo "  🔄 Restarting gateway..."
+  if openclaw gateway restart 2>/dev/null; then
+    echo "  ✅ Gateway restarted — new routing active"
+  else
+    echo "  ⚠️  Gateway restart failed — run 'openclaw gateway restart' manually"
+  fi
+
   # Save state
   python3 -c "
 import json

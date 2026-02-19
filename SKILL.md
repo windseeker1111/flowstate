@@ -1,6 +1,6 @@
 ---
 name: flowclaw
-description: "LLM subscription usage monitoring and load balancing for OpenClaw. Track usage across all your Anthropic, Google, OpenAI, and GitHub accounts in one dashboard. Optionally auto-balance routing to maximize every credit."
+description: "Unkillable Agent Infrastructure. Unified usage monitoring and intelligent load balancing for Anthropic, Google, OpenAI, and Ollama. Never let your agent get stuck."
 metadata:
   openclaw:
     emoji: "🦞"
